@@ -90,30 +90,29 @@ export class NiimbotUniAppBleClient extends NiimbotAbstractClient {
     // Wait for BLE connection to stabilize before MTU negotiation
     await Utils.sleep(500);
 
-    // Android: try to negotiate a larger MTU (retry up to 3 times)
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const mtuRes = await new Promise<{ mtu: number }>((resolve, reject) => {
-          uni.setBLEMTU({
-            deviceId,
-            mtu: 512,
-            success: (res: any) => resolve(res),
-            fail: (err: any) => reject(err),
-          });
+    // Android: try to negotiate a larger MTU
+    try {
+      const mtuRes: any = await new Promise((resolve, reject) => {
+        uni.setBLEMTU({
+          deviceId,
+          mtu: 512,
+          success: (res: any) => resolve(res),
+          fail: (err: any) => reject(err),
         });
-        const negotiated = (mtuRes.mtu ?? 0) - 3; // ATT overhead
-        console.log("[niimblue] MTU negotiated:", mtuRes.mtu, "-> payload:", negotiated);
-        if (negotiated >= 20) {
-          this.mtu = negotiated;
-        }
-        break;
-      } catch {
-        if (attempt < 3) {
-          await Utils.sleep(300);
-        } else {
-          console.log("[niimblue] MTU negotiation failed after 3 attempts, using default:", this.mtu);
-        }
+      });
+
+      // Some Android UniApp runtimes don't return the negotiated MTU value
+      const reportedMtu = mtuRes?.mtu;
+      if (typeof reportedMtu === "number" && reportedMtu > 23) {
+        this.mtu = reportedMtu - 3; // ATT overhead
+      } else {
+        // setBLEMTU succeeded but didn't report value — use conservative 200
+        this.mtu = 200;
       }
+      console.log("[niimblue] MTU setBLEMTU ok, reported:", reportedMtu, "-> using payload:", this.mtu);
+    } catch {
+      // iOS or unsupported — keep default 20
+      console.log("[niimblue] MTU negotiation not supported, using default:", this.mtu);
     }
 
     const { serviceId, characteristicId, writeType } = await this.findSuitableCharacteristic(deviceId);

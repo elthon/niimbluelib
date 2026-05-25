@@ -3805,29 +3805,24 @@ var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
     this.deviceName = deviceName;
     uni.onBLEConnectionStateChange(this.onConnectionStateChange);
     await Utils.sleep(500);
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const mtuRes = await new Promise((resolve, reject) => {
-          uni.setBLEMTU({
-            deviceId,
-            mtu: 512,
-            success: (res) => resolve(res),
-            fail: (err) => reject(err)
-          });
+    try {
+      const mtuRes = await new Promise((resolve, reject) => {
+        uni.setBLEMTU({
+          deviceId,
+          mtu: 512,
+          success: (res) => resolve(res),
+          fail: (err) => reject(err)
         });
-        const negotiated = (mtuRes.mtu ?? 0) - 3;
-        console.log("[niimblue] MTU negotiated:", mtuRes.mtu, "-> payload:", negotiated);
-        if (negotiated >= 20) {
-          this.mtu = negotiated;
-        }
-        break;
-      } catch {
-        if (attempt < 3) {
-          await Utils.sleep(300);
-        } else {
-          console.log("[niimblue] MTU negotiation failed after 3 attempts, using default:", this.mtu);
-        }
+      });
+      const reportedMtu = mtuRes?.mtu;
+      if (typeof reportedMtu === "number" && reportedMtu > 23) {
+        this.mtu = reportedMtu - 3;
+      } else {
+        this.mtu = 200;
       }
+      console.log("[niimblue] MTU setBLEMTU ok, reported:", reportedMtu, "-> using payload:", this.mtu);
+    } catch {
+      console.log("[niimblue] MTU negotiation not supported, using default:", this.mtu);
     }
     const { serviceId, characteristicId, writeType } = await this.findSuitableCharacteristic(deviceId);
     this.serviceId = serviceId;
