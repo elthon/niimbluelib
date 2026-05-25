@@ -167,13 +167,13 @@ export default {
       densityMax: 15,
       quantity: 1,
       printDirection: "top",
-      paperW: "80",
-      paperH: "60",
+      paperW: "40",
+      paperH: "30",
       printerDpi: 300,
-      canvasW: "848",
-      canvasH: "712",
-      canvasWidth: 848,
-      canvasHeight: 712,
+      canvasW: "472",
+      canvasH: "352",
+      canvasWidth: 472,
+      canvasHeight: 352,
 
       printing: false,
       printProgress: 0,
@@ -386,7 +386,9 @@ export default {
       this.printing = true;
       this.printProgress = 0;
       this.printStatus = "编码图像...";
-      this.log("开始打印流程");
+      const dataBytes = Math.ceil(this.canvasWidth * this.canvasHeight / 8);
+      this.log("开始打印 " + this.canvasWidth + "x" + this.canvasHeight +
+        " (" + Math.round(dataBytes / 1024) + "KB, MTU=" + (this.client.mtu || "?") + ")");
 
       try {
         const encoded = await encodeUniCanvas(

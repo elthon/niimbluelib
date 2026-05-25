@@ -38,7 +38,7 @@ export class NiimbotUniAppBleClient extends NiimbotAbstractClient {
   private characteristicId?: string;
   private writeType: string = "writeNoResponse";
   private deviceName?: string;
-  private mtu: number = 20;
+  public mtu: number = 20;
 
   private readonly onConnectionStateChange = (res: UniAppBLEConnectionStateChange) => {
     if (res.deviceId === this.deviceId && !res.connected) {
@@ -87,29 +87,34 @@ export class NiimbotUniAppBleClient extends NiimbotAbstractClient {
 
     uni.onBLEConnectionStateChange(this.onConnectionStateChange);
 
-    // Android: try to negotiate a larger MTU
-    try {
-      const mtuRes = await new Promise<{ mtu: number }>((resolve, reject) => {
-        uni.setBLEMTU({
-          deviceId,
-          mtu: 512,
-          success: (res: any) => resolve(res),
-          fail: () => reject(),
-        });
-      });
-      const negotiated = (mtuRes.mtu ?? 0) - 3; // ATT overhead
-      console.log("[niimblue] MTU negotiated:", mtuRes.mtu, "-> payload:", negotiated);
-      if (negotiated >= 20) {
-        this.mtu = negotiated;
-      }
-      // else keep default 20
-    } catch {
-      // iOS or unsupported — keep default 20
-      console.log("[niimblue] MTU negotiation skipped, using default:", this.mtu);
-    }
-
-    // Some devices need time to discover services after connection
+    // Wait for BLE connection to stabilize before MTU negotiation
     await Utils.sleep(500);
+
+    // Android: try to negotiate a larger MTU (retry up to 3 times)
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const mtuRes = await new Promise<{ mtu: number }>((resolve, reject) => {
+          uni.setBLEMTU({
+            deviceId,
+            mtu: 512,
+            success: (res: any) => resolve(res),
+            fail: (err: any) => reject(err),
+          });
+        });
+        const negotiated = (mtuRes.mtu ?? 0) - 3; // ATT overhead
+        console.log("[niimblue] MTU negotiated:", mtuRes.mtu, "-> payload:", negotiated);
+        if (negotiated >= 20) {
+          this.mtu = negotiated;
+        }
+        break;
+      } catch {
+        if (attempt < 3) {
+          await Utils.sleep(300);
+        } else {
+          console.log("[niimblue] MTU negotiation failed after 3 attempts, using default:", this.mtu);
+        }
+      }
+    }
 
     const { serviceId, characteristicId, writeType } = await this.findSuitableCharacteristic(deviceId);
     this.serviceId = serviceId;
@@ -322,8 +327,6 @@ export class NiimbotUniAppBleClient extends NiimbotAbstractClient {
         // Build a brand-new ArrayBuffer (some UniApp runtimes reject sliced/shared buffers)
         const ab = new ArrayBuffer(end - offset);
         new Uint8Array(ab).set(data.subarray(offset, end));
-
-        console.log("[niimblue] write chunk", offset, "len", ab.byteLength, "writeType", this.writeType);
 
         await new Promise<void>((resolve, reject) => {
           uni.writeBLECharacteristicValue({

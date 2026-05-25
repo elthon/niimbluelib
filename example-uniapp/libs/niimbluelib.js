@@ -3804,24 +3804,31 @@ var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
     this.deviceId = deviceId;
     this.deviceName = deviceName;
     uni.onBLEConnectionStateChange(this.onConnectionStateChange);
-    try {
-      const mtuRes = await new Promise((resolve, reject) => {
-        uni.setBLEMTU({
-          deviceId,
-          mtu: 512,
-          success: (res) => resolve(res),
-          fail: () => reject()
-        });
-      });
-      const negotiated = (mtuRes.mtu ?? 0) - 3;
-      console.log("[niimblue] MTU negotiated:", mtuRes.mtu, "-> payload:", negotiated);
-      if (negotiated >= 20) {
-        this.mtu = negotiated;
-      }
-    } catch {
-      console.log("[niimblue] MTU negotiation skipped, using default:", this.mtu);
-    }
     await Utils.sleep(500);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const mtuRes = await new Promise((resolve, reject) => {
+          uni.setBLEMTU({
+            deviceId,
+            mtu: 512,
+            success: (res) => resolve(res),
+            fail: (err) => reject(err)
+          });
+        });
+        const negotiated = (mtuRes.mtu ?? 0) - 3;
+        console.log("[niimblue] MTU negotiated:", mtuRes.mtu, "-> payload:", negotiated);
+        if (negotiated >= 20) {
+          this.mtu = negotiated;
+        }
+        break;
+      } catch {
+        if (attempt < 3) {
+          await Utils.sleep(300);
+        } else {
+          console.log("[niimblue] MTU negotiation failed after 3 attempts, using default:", this.mtu);
+        }
+      }
+    }
     const { serviceId, characteristicId, writeType } = await this.findSuitableCharacteristic(deviceId);
     this.serviceId = serviceId;
     this.characteristicId = characteristicId;
@@ -3996,7 +4003,6 @@ var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
         const end = Math.min(offset + this.mtu, data.length);
         const ab = new ArrayBuffer(end - offset);
         new Uint8Array(ab).set(data.subarray(offset, end));
-        console.log("[niimblue] write chunk", offset, "len", ab.byteLength, "writeType", this.writeType);
         await new Promise((resolve, reject) => {
           uni.writeBLECharacteristicValue({
             deviceId: this.deviceId,
