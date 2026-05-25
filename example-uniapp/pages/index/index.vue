@@ -90,11 +90,9 @@
     <!-- 画布预览 -->
     <view class="card">
       <view class="card-title">打印预览 ({{ canvasWidth }}×{{ canvasHeight }}px)</view>
-      <view class="canvas-wrapper"
-        :style="{ width: canvasDisplayW + 'px', height: canvasDisplayH + 'px', overflow: 'hidden' }">
+      <view class="canvas-wrapper">
         <canvas canvas-id="printCanvas"
-          :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px',
-                    transform: 'scale(' + canvasScale + ')', transformOrigin: 'top left' }"
+          :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }"
           class="print-canvas" />
       </view>
       <view class="btn-row">
@@ -172,10 +170,10 @@ export default {
       paperW: "40",
       paperH: "30",
       printerDpi: 300,
-      canvasW: "472",
-      canvasH: "360",
-      canvasWidth: 472,
-      canvasHeight: 360,
+      canvasW: "320",
+      canvasH: "240",
+      canvasWidth: 320,
+      canvasHeight: 240,
 
       currentPattern: "lines",
       printing: false,
@@ -188,20 +186,6 @@ export default {
       labelTypeNames: LABEL_TYPES.map((t) => t.name),
       screenWidth: 320,
     };
-  },
-
-  computed: {
-    canvasScale() {
-      const maxW = this.screenWidth - 40; // card padding
-      if (this.canvasWidth <= maxW) return 1;
-      return Math.round((maxW / this.canvasWidth) * 1000) / 1000;
-    },
-    canvasDisplayW() {
-      return Math.round(this.canvasWidth * this.canvasScale);
-    },
-    canvasDisplayH() {
-      return Math.round(this.canvasHeight * this.canvasScale);
-    },
   },
 
   onReady() {
@@ -339,31 +323,53 @@ export default {
       const hMm = parseFloat(this.paperH) || 60;
       const dpi = this.printerDpi || 300;
       let wPx = this.mmToPixels(wMm, dpi);
-      const hPx = this.mmToPixels(hMm, dpi);
+      let hPx = this.mmToPixels(hMm, dpi);
 
       // Clamp width to printhead pixels if known
       const meta = this.client ? this.client.getModelMetadata() : null;
       if (meta && wPx > meta.printheadPixels) {
         wPx = Math.floor(meta.printheadPixels / 8) * 8;
-        this.log("宽度超出打印头 (" + meta.printheadPixels + "px)，限制为 " + wPx + "px", "warn");
+      }
+
+      const idealW = wPx;
+      const idealH = hPx;
+
+      // UniApp canvas can't exceed screen width
+      const maxW = this.getMaxCanvasWidth();
+      if (wPx > maxW) {
+        const ratio = maxW / wPx;
+        wPx = maxW;
+        hPx = Math.ceil(hPx * ratio / 8) * 8;
+        this.log("画布受屏幕限制: 理想 " + idealW + "x" + idealH + "px → 实际 " + wPx + "x" + hPx + "px", "warn");
+      } else {
+        this.log("纸张 " + wMm + "x" + hMm + "mm @ " + dpi + "dpi = " + wPx + "x" + hPx + "px");
       }
 
       this.canvasW = String(wPx);
       this.canvasH = String(hPx);
-      this.log("纸张 " + wMm + "x" + hMm + "mm @ " + dpi + "dpi = " + wPx + "x" + hPx + "px");
       this.onResizeCanvas();
     },
 
+    getMaxCanvasWidth() {
+      // UniApp Android canvas buffer = display size, can't exceed screen
+      return Math.floor((this.screenWidth - 32) / 8) * 8; // card padding + round to 8
+    },
+
     onResizeCanvas() {
-      const w = parseInt(this.canvasW) || 240;
+      let w = parseInt(this.canvasW) || 240;
       const h = parseInt(this.canvasH) || 160;
       if (w % 8 !== 0) {
-        uni.showToast({ title: "宽度必须是 8 的倍数", icon: "none" });
-        return;
+        w = Math.ceil(w / 8) * 8;
       }
+      const maxW = this.getMaxCanvasWidth();
+      if (w > maxW) {
+        this.log("画布宽度 " + w + "px 超出屏幕限制，已裁剪为 " + maxW + "px", "warn");
+        w = maxW;
+      }
+      this.canvasW = String(w);
       this.canvasWidth = w;
       this.canvasHeight = h;
-      this.$nextTick(() => this.drawTestPattern("lines"));
+      this.$nextTick(() => this.drawTestPattern(this.currentPattern));
     },
 
     drawTestPattern(pattern, callback) {
