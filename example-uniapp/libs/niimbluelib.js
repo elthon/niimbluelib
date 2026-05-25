@@ -573,11 +573,11 @@ var Utils = class _Utils {
     let total = 0;
     const parts = [0, 0, 0];
     const chunkSize = Math.floor(printheadPixels / 8 / 3);
-    let split = buf.byteLength <= chunkSize * 3;
+    let split = chunkSize > 0 && buf.byteLength <= chunkSize * 3;
     if (mode === "total") {
       split = false;
     } else if (mode === "split") {
-      if (buf.byteLength > chunkSize * 3) {
+      if (!split) {
         console.warn(
           `Can't use split mode: buffer size (${buf.byteLength}) is large than chunk size * 3 (${chunkSize * 3}), maybe printheadPixels is set incorrectly`
         );
@@ -598,12 +598,15 @@ var Utils = class _Utils {
             continue;
           }
           parts[chunkIdx]++;
-          if (parts[chunkIdx] > 255) {
-            console.warn("Pixel count overflow");
-          }
         }
       }
     });
+    if (split && parts.some((p) => p > 255)) {
+      if (mode === "split") {
+        console.warn("Can't use split mode: pixel count is larger than 255, using total mode");
+      }
+      split = false;
+    }
     if (split) {
       return { total, parts };
     }
