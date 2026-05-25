@@ -91,8 +91,8 @@
     <view class="card">
       <view class="card-title">打印预览 ({{ canvasWidth }}×{{ canvasHeight }}px)</view>
       <view class="canvas-wrapper">
-        <canvas type="2d" id="printCanvas"
-          :style="{ width: canvasDisplayWidth + 'px', height: canvasDisplayHeight + 'px' }"
+        <canvas canvas-id="printCanvas"
+          :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }"
           class="print-canvas" />
       </view>
       <view class="btn-row">
@@ -143,7 +143,7 @@ import {
   LabelType,
 } from "@/libs/niimbluelib.js";
 
-import { encodeImageData } from "@/utils/image-helper.js";
+import { encodeImageData, encodeUniCanvas } from "@/utils/image-helper.js";
 
 const LABEL_TYPES = [
   { name: "有间距 (WithGaps)", value: LabelType.WithGaps },
@@ -170,14 +170,10 @@ export default {
       paperW: "40",
       paperH: "30",
       printerDpi: 300,
-      canvasW: "472",
-      canvasH: "360",
-      canvasWidth: 472,
-      canvasHeight: 360,
-      canvasDisplayWidth: 320,
-      canvasDisplayHeight: 244,
-      canvasNode: null,
-      canvasCtx: null,
+      canvasW: "240",
+      canvasH: "184",
+      canvasWidth: 240,
+      canvasHeight: 184,
 
       currentPattern: "lines",
       printing: false,
@@ -197,8 +193,8 @@ export default {
       const sysInfo = uni.getSystemInfoSync();
       this.screenWidth = sysInfo.windowWidth || 360;
     } catch (e) { this.screenWidth = 360; }
-
-    this.initCanvas();
+    this.drawTestPattern("lines");
+    this.log("页面就绪，屏幕宽度: " + this.screenWidth + "px");
   },
 
   onUnload() {
@@ -206,26 +202,6 @@ export default {
   },
 
   methods: {
-    initCanvas() {
-      const self = this;
-      // Canvas 2D: query the node to get canvas and context
-      uni.createSelectorQuery().in(this)
-        .select('#printCanvas')
-        .fields({ node: true, size: true }, function (res) {
-          console.log("[niimblue] canvas query result:", JSON.stringify(res));
-          if (res && res.node) {
-            self.canvasNode = res.node;
-            self.canvasCtx = res.node.getContext('2d');
-            self.applyCanvasSize();
-            self.drawTestPattern("lines");
-            self.log("Canvas 2D 就绪 (" + self.canvasNode.width + "x" + self.canvasNode.height + ")，屏幕: " + self.screenWidth + "px");
-          } else {
-            self.log("Canvas 2D node 获取失败，res=" + JSON.stringify(res), "error");
-          }
-        })
-        .exec();
-    },
-
     log(text, type = "info") {
       this.logs.push({ text, type });
       if (this.logs.length > 500) this.logs = this.logs.slice(-300);
@@ -355,59 +331,49 @@ export default {
         wPx = Math.floor(meta.printheadPixels / 8) * 8;
       }
 
+      // UniApp old canvas: pixel buffer = CSS display size, can't exceed screen
+      const maxW = this.getMaxCanvasWidth();
+      if (wPx > maxW) {
+        const ratio = maxW / wPx;
+        hPx = Math.ceil(hPx * ratio / 8) * 8;
+        wPx = maxW;
+        this.log("画布受屏幕限制 (max " + maxW + "px)，使用 " + wPx + "x" + hPx + "px", "warn");
+      } else {
+        this.log("纸张 " + wMm + "x" + hMm + "mm @ " + dpi + "dpi = " + wPx + "x" + hPx + "px");
+      }
+
       this.canvasW = String(wPx);
       this.canvasH = String(hPx);
-      this.log("纸张 " + wMm + "x" + hMm + "mm @ " + dpi + "dpi = " + wPx + "x" + hPx + "px");
       this.onResizeCanvas();
     },
 
-    applyCanvasSize() {
-      if (!this.canvasNode) return;
-      // Canvas 2D: buffer resolution is independent of CSS display size
-      this.canvasNode.width = this.canvasWidth;
-      this.canvasNode.height = this.canvasHeight;
-      // CSS display: scale to fit screen
-      const maxDisplayW = this.screenWidth - 64;
-      if (this.canvasWidth > maxDisplayW) {
-        const scale = maxDisplayW / this.canvasWidth;
-        this.canvasDisplayWidth = Math.round(this.canvasWidth * scale);
-        this.canvasDisplayHeight = Math.round(this.canvasHeight * scale);
-      } else {
-        this.canvasDisplayWidth = this.canvasWidth;
-        this.canvasDisplayHeight = this.canvasHeight;
-      }
+    getMaxCanvasWidth() {
+      return Math.floor((this.screenWidth - 32) / 8) * 8;
     },
 
     onResizeCanvas() {
       let w = parseInt(this.canvasW) || 240;
       const h = parseInt(this.canvasH) || 160;
-      if (w % 8 !== 0) {
-        w = Math.ceil(w / 8) * 8;
-      }
+      if (w % 8 !== 0) w = Math.ceil(w / 8) * 8;
+      const maxW = this.getMaxCanvasWidth();
+      if (w > maxW) w = maxW;
       this.canvasW = String(w);
       this.canvasWidth = w;
       this.canvasHeight = h;
-      this.applyCanvasSize();
       this.$nextTick(() => this.drawTestPattern(this.currentPattern));
     },
 
     drawTestPattern(pattern) {
       this.currentPattern = pattern;
-      const ctx = this.canvasCtx;
-      if (!ctx) {
-        console.log("[niimblue] drawTestPattern: ctx not ready, will retry after initCanvas");
-        this.initCanvas();
-        return;
-      }
+      const ctx = uni.createCanvasContext("printCanvas", this);
       const w = this.canvasWidth;
       const h = this.canvasHeight;
 
-      // White background
-      ctx.fillStyle = "#ffffff";
+      ctx.setFillStyle("#ffffff");
       ctx.fillRect(0, 0, w, h);
-      ctx.strokeStyle = "#000000";
-      ctx.fillStyle = "#000000";
-      ctx.lineWidth = 2;
+      ctx.setStrokeStyle("#000000");
+      ctx.setFillStyle("#000000");
+      ctx.setLineWidth(2);
 
       if (pattern === "lines") {
         ctx.strokeRect(1, 1, w - 2, h - 2);
@@ -420,19 +386,20 @@ export default {
         for (let y = 0; y < h; y += 16) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
       } else if (pattern === "text") {
         const fontSize = Math.max(20, Math.round(w / 15));
-        ctx.font = fontSize + "px sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+        ctx.setFontSize(fontSize);
+        ctx.setTextAlign("center");
+        ctx.setTextBaseline("middle");
         ctx.fillText("NiimBlue", w / 2, h / 3);
-        ctx.font = Math.round(fontSize * 0.7) + "px sans-serif";
+        ctx.setFontSize(Math.round(fontSize * 0.7));
         ctx.fillText("打印测试 Print Test", w / 2, h / 3 + fontSize * 1.4);
-        ctx.font = Math.round(fontSize * 0.5) + "px sans-serif";
+        ctx.setFontSize(Math.round(fontSize * 0.5));
         ctx.fillText(w + " x " + h + "px", w / 2, h / 3 + fontSize * 2.4);
         ctx.strokeRect(1, 1, w - 2, h - 2);
       } else if (pattern === "fill") {
         ctx.fillRect(0, 0, w, h);
       }
-      // Canvas 2D API: drawing is synchronous, no ctx.draw() needed
+
+      ctx.draw();
     },
 
     async onPrint() {
@@ -451,16 +418,9 @@ export default {
         " (" + Math.round(dataBytes / 1024) + "KB, MTU=" + (this.client.mtu || "?") + ")");
 
       try {
-        // Re-draw to ensure latest content
-        this.drawTestPattern(this.currentPattern);
-
-        // Canvas 2D: getImageData is synchronous and reliable
-        const ctx = this.canvasCtx;
-        const imageData = ctx.getImageData(0, 0, w, h);
-        console.log("[niimblue] getImageData: " + imageData.data.length +
-          " bytes, first16=[" + Array.prototype.slice.call(imageData.data, 0, 16) + "]");
-
-        const encoded = encodeImageData(imageData.data, w, h, this.printDirection);
+        const encoded = await encodeUniCanvas(
+          "printCanvas", w, h, this.printDirection, this
+        );
         this.log("图像编码完成: " + encoded.cols + "x" + encoded.rows + ", " + encoded.rowsData.length + " 行", "info");
 
         const printTaskName = this.client.getPrintTaskType() || "B1";
