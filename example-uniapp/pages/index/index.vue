@@ -48,7 +48,7 @@
 
       <view class="form-item">
         <text class="form-label">浓度 ({{ density }})</text>
-        <slider :value="density" :min="1" :max="5" :step="1" show-value
+        <slider :value="density" :min="densityMin" :max="densityMax" :step="1" show-value
           activeColor="#333" @change="density = $event.detail.value" />
       </view>
 
@@ -162,16 +162,18 @@ export default {
       printerInfo: {},
 
       labelTypeIndex: 0,
-      density: 2,
+      density: 10,
+      densityMin: 1,
+      densityMax: 15,
       quantity: 1,
-      printDirection: "left",
+      printDirection: "top",
       paperW: "80",
       paperH: "60",
-      printerDpi: 203,
-      canvasW: "640",
-      canvasH: "480",
-      canvasWidth: 640,
-      canvasHeight: 480,
+      printerDpi: 300,
+      canvasW: "848",
+      canvasH: "712",
+      canvasWidth: 848,
+      canvasHeight: 712,
 
       printing: false,
       printProgress: 0,
@@ -235,11 +237,18 @@ export default {
         const meta = client.getModelMetadata();
         if (meta) {
           this.printerDpi = meta.dpi;
-          this.log("检测到打印机: " + meta.model + ", DPI: " + meta.dpi + ", 打印头: " + meta.printheadPixels + "px", "success");
+          this.densityMin = meta.densityMin;
+          this.densityMax = meta.densityMax;
+          this.density = meta.densityDefault;
+          this.printDirection = meta.printDirection;
+          this.log("检测到: " + meta.model + ", DPI=" + meta.dpi +
+            ", 打印头=" + meta.printheadPixels + "px" +
+            ", 方向=" + meta.printDirection +
+            ", 浓度=" + meta.densityMin + "-" + meta.densityMax, "success");
           // Auto-recalculate canvas size from paper dimensions
           this.onCalcFromPaper();
         } else {
-          this.log("未找到型号元数据 (modelId=" + e.info.modelId + ")，使用默认 DPI 203", "warn");
+          this.log("未找到型号元数据 (modelId=" + e.info.modelId + ")，使用默认设置", "warn");
         }
       });
 
@@ -306,9 +315,17 @@ export default {
     onCalcFromPaper() {
       const wMm = parseFloat(this.paperW) || 80;
       const hMm = parseFloat(this.paperH) || 60;
-      const dpi = this.printerDpi || 203;
-      const wPx = this.mmToPixels(wMm, dpi);
+      const dpi = this.printerDpi || 300;
+      let wPx = this.mmToPixels(wMm, dpi);
       const hPx = this.mmToPixels(hMm, dpi);
+
+      // Clamp width to printhead pixels if known
+      const meta = this.client ? this.client.getModelMetadata() : null;
+      if (meta && wPx > meta.printheadPixels) {
+        wPx = Math.floor(meta.printheadPixels / 8) * 8;
+        this.log("宽度超出打印头 (" + meta.printheadPixels + "px)，限制为 " + wPx + "px", "warn");
+      }
+
       this.canvasW = String(wPx);
       this.canvasH = String(hPx);
       this.log("纸张 " + wMm + "x" + hMm + "mm @ " + dpi + "dpi = " + wPx + "x" + hPx + "px");
