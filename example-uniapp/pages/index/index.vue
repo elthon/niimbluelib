@@ -59,6 +59,12 @@
       </view>
 
       <view class="form-item">
+        <text class="form-label">发送间隔 ({{ packetIntervalMs }}ms)</text>
+        <slider :value="packetIntervalMs" :min="0" :max="10" :step="1" show-value
+          activeColor="#333" @change="onPacketIntervalChange" />
+      </view>
+
+      <view class="form-item">
         <text class="form-label">打印方向</text>
         <picker :range="['左旋90° (left)', '从上到下 (top)']" :value="printDirection === 'left' ? 0 : 1"
           @change="printDirection = $event.detail.value == 0 ? 'left' : 'top'">
@@ -169,6 +175,7 @@ export default {
       densityMin: 1,
       densityMax: 15,
       quantity: 1,
+      packetIntervalMs: 2,
       printDirection: "top",
       paperW: "80",
       paperH: "60",
@@ -311,6 +318,12 @@ export default {
       });
 
       this.client = client;
+      this.client.setPacketInterval(this.packetIntervalMs);
+    },
+
+    onPacketIntervalChange(e) {
+      this.packetIntervalMs = Number(e.detail.value);
+      this.client?.setPacketInterval(this.packetIntervalMs);
     },
 
     async onScan() {
