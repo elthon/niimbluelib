@@ -96,10 +96,10 @@
           class="print-canvas" />
       </view>
       <view class="btn-row">
-        <button class="btn btn-small" @click="drawTestPattern('lines')">线条</button>
-        <button class="btn btn-small" @click="drawTestPattern('grid')">网格</button>
-        <button class="btn btn-small" @click="drawTestPattern('text')">文字</button>
-        <button class="btn btn-small" @click="drawTestPattern('fill')">全黑</button>
+        <button class="btn btn-small" :class="currentPattern==='lines'?'btn-active':''" @click="drawTestPattern('lines')">线条</button>
+        <button class="btn btn-small" :class="currentPattern==='grid'?'btn-active':''" @click="drawTestPattern('grid')">网格</button>
+        <button class="btn btn-small" :class="currentPattern==='text'?'btn-active':''" @click="drawTestPattern('text')">文字</button>
+        <button class="btn btn-small" :class="currentPattern==='fill'?'btn-active':''" @click="drawTestPattern('fill')">全黑</button>
       </view>
     </view>
 
@@ -175,6 +175,7 @@ export default {
       canvasWidth: 472,
       canvasHeight: 352,
 
+      currentPattern: "lines",
       printing: false,
       printProgress: 0,
       printStatus: "",
@@ -344,11 +345,13 @@ export default {
       this.$nextTick(() => this.drawTestPattern("lines"));
     },
 
-    drawTestPattern(pattern) {
+    drawTestPattern(pattern, callback) {
+      this.currentPattern = pattern;
       const ctx = uni.createCanvasContext("printCanvas", this);
       const w = this.canvasWidth;
       const h = this.canvasHeight;
 
+      // White background
       ctx.setFillStyle("#ffffff");
       ctx.fillRect(0, 0, w, h);
       ctx.setStrokeStyle("#000000");
@@ -365,16 +368,24 @@ export default {
         for (let x = 0; x < w; x += 16) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
         for (let y = 0; y < h; y += 16) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
       } else if (pattern === "text") {
-        ctx.setFontSize(20); ctx.setTextAlign("center"); ctx.setTextBaseline("middle");
+        const fontSize = Math.max(20, Math.round(w / 15));
+        ctx.setFontSize(fontSize);
+        ctx.setTextAlign("center");
+        ctx.setTextBaseline("middle");
         ctx.fillText("NiimBlue", w / 2, h / 3);
-        ctx.setFontSize(14); ctx.fillText("打印测试", w / 2, h / 3 + 28);
-        ctx.setFontSize(12); ctx.fillText(w + " x " + h, w / 2, h / 3 + 52);
+        ctx.setFontSize(Math.round(fontSize * 0.7));
+        ctx.fillText("打印测试 Print Test", w / 2, h / 3 + fontSize * 1.4);
+        ctx.setFontSize(Math.round(fontSize * 0.5));
+        ctx.fillText(w + " x " + h + "px", w / 2, h / 3 + fontSize * 2.4);
         ctx.strokeRect(1, 1, w - 2, h - 2);
       } else if (pattern === "fill") {
         ctx.fillRect(0, 0, w, h);
       }
 
-      ctx.draw();
+      // ctx.draw() is async — use callback to know when pixel buffer is ready
+      ctx.draw(false, () => {
+        if (typeof callback === "function") callback();
+      });
     },
 
     async onPrint() {
@@ -385,12 +396,20 @@ export default {
 
       this.printing = true;
       this.printProgress = 0;
-      this.printStatus = "编码图像...";
+      this.printStatus = "准备画布...";
       const dataBytes = Math.ceil(this.canvasWidth * this.canvasHeight / 8);
       this.log("开始打印 " + this.canvasWidth + "x" + this.canvasHeight +
         " (" + Math.round(dataBytes / 1024) + "KB, MTU=" + (this.client.mtu || "?") + ")");
 
       try {
+        // Re-draw current pattern and wait for ctx.draw() callback to ensure pixel buffer is ready
+        await new Promise((resolve) => {
+          this.drawTestPattern(this.currentPattern, resolve);
+        });
+        // Extra delay to make sure the pixel buffer is flushed
+        await new Promise((r) => setTimeout(r, 150));
+
+        this.printStatus = "编码图像...";
         const encoded = await encodeUniCanvas(
           "printCanvas", this.canvasWidth, this.canvasHeight, this.printDirection, this
         );
