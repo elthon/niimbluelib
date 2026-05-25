@@ -3763,6 +3763,7 @@ var NiimbotSerialClient = class extends NiimbotAbstractClient {
 var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
   constructor() {
     super(...arguments);
+    this.writeType = "writeNoResponse";
     this.mtu = 20;
     this.onConnectionStateChange = (res) => {
       if (res.deviceId === this.deviceId && !res.connected) {
@@ -3816,9 +3817,10 @@ var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
     } catch {
     }
     await Utils.sleep(500);
-    const { serviceId, characteristicId } = await this.findSuitableCharacteristic(deviceId);
+    const { serviceId, characteristicId, writeType } = await this.findSuitableCharacteristic(deviceId);
     this.serviceId = serviceId;
     this.characteristicId = characteristicId;
+    this.writeType = writeType;
     await new Promise((resolve, reject) => {
       uni.notifyBLECharacteristicValueChange({
         deviceId,
@@ -3917,8 +3919,9 @@ var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
         const canNotify = p.notify || p.indicate;
         const canWrite = p.writeNoResponse || p.writeDefault || p.write;
         if (canNotify && canWrite) {
-          console.log("[niimblue] selected:", service.uuid, ch.uuid);
-          return { serviceId: service.uuid, characteristicId: ch.uuid };
+          const writeType = p.writeNoResponse ? "writeNoResponse" : "write";
+          console.log("[niimblue] selected:", service.uuid, ch.uuid, "writeType:", writeType);
+          return { serviceId: service.uuid, characteristicId: ch.uuid, writeType };
         }
       }
     }
@@ -3930,6 +3933,7 @@ var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
     this.deviceId = void 0;
     this.serviceId = void 0;
     this.characteristicId = void 0;
+    this.writeType = "writeNoResponse";
     this.deviceName = void 0;
     this.info = {};
     this.emit("disconnect", new DisconnectEvent());
@@ -3956,6 +3960,7 @@ var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
     this.deviceId = void 0;
     this.serviceId = void 0;
     this.characteristicId = void 0;
+    this.writeType = "writeNoResponse";
     this.deviceName = void 0;
     this.info = {};
   }
@@ -3967,13 +3972,14 @@ var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
       await Utils.sleep(this.packetIntervalMs);
       for (let offset = 0; offset < data.length; offset += this.mtu) {
         const chunk = data.slice(offset, offset + this.mtu);
+        const buffer = chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength);
         await new Promise((resolve, reject) => {
           uni.writeBLECharacteristicValue({
             deviceId: this.deviceId,
             serviceId: this.serviceId,
             characteristicId: this.characteristicId,
-            value: chunk.buffer,
-            writeType: "writeNoResponse",
+            value: buffer,
+            writeType: this.writeType,
             success: () => resolve(),
             fail: (err) => reject(new Error(`writeBLECharacteristicValue failed: ${err.errMsg}`))
           });
