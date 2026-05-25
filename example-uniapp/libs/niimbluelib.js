@@ -3837,13 +3837,30 @@ var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
       });
     });
     uni.onBLECharacteristicValueChange(this.onCharacteristicValueChange);
-    try {
-      await this.initialNegotiate();
-      await this.fetchPrinterInfo();
-    } catch (e) {
-      console.error("Unable to fetch printer info.");
-      console.error(e);
+    await Utils.sleep(200);
+    this.abstraction.setPacketTimeout(3e3);
+    let negotiateOk = false;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        console.log("[niimblue] initialNegotiate attempt", attempt);
+        await this.initialNegotiate();
+        negotiateOk = true;
+        break;
+      } catch (e) {
+        console.warn(`[niimblue] initialNegotiate attempt ${attempt} failed:`, e);
+        if (attempt < 3) await Utils.sleep(300);
+      }
     }
+    if (negotiateOk) {
+      try {
+        await this.fetchPrinterInfo();
+      } catch (e) {
+        console.error("[niimblue] fetchPrinterInfo failed:", e);
+      }
+    } else {
+      console.error("[niimblue] All initialNegotiate attempts failed, skipping fetchPrinterInfo");
+    }
+    this.abstraction.setDefaultPacketTimeout();
     const result = {
       deviceName: this.deviceName,
       result: this.info.connectResult ?? 90 /* FirmwareErrors */
