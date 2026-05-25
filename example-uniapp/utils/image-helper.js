@@ -124,7 +124,4 @@ function encodeUniCanvas(canvasId, width, height, printDirection, componentInsta
   });
 }
 
-module.exports = {
-  encodeImageData: encodeImageData,
-  encodeUniCanvas: encodeUniCanvas,
-};
+export { encodeImageData, encodeUniCanvas };

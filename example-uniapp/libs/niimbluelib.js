@@ -1,4 +1,3 @@
-"use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -7,10 +6,6 @@ var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
-};
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
@@ -28,11 +23,10 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // node_modules/eventemitter3/index.js
 var require_eventemitter3 = __commonJS({
-  "node_modules/eventemitter3/index.js"(exports2, module2) {
+  "node_modules/eventemitter3/index.js"(exports, module) {
     "use strict";
     var has = Object.prototype.hasOwnProperty;
     var prefix = "~";
@@ -186,25 +180,25 @@ var require_eventemitter3 = __commonJS({
     EventEmitter2.prototype.addListener = EventEmitter2.prototype.on;
     EventEmitter2.prefixed = prefix;
     EventEmitter2.EventEmitter = EventEmitter2;
-    if ("undefined" !== typeof module2) {
-      module2.exports = EventEmitter2;
+    if ("undefined" !== typeof module) {
+      module.exports = EventEmitter2;
     }
   }
 });
 
 // node_modules/crc-32/crc32.js
 var require_crc32 = __commonJS({
-  "node_modules/crc-32/crc32.js"(exports2) {
+  "node_modules/crc-32/crc32.js"(exports) {
     var CRC323;
     (function(factory) {
       if (typeof DO_NOT_EXPORT_CRC === "undefined") {
-        if ("object" === typeof exports2) {
-          factory(exports2);
+        if ("object" === typeof exports) {
+          factory(exports);
         } else if ("function" === typeof define && define.amd) {
           define(function() {
-            var module3 = {};
-            factory(module3);
-            return module3;
+            var module2 = {};
+            factory(module2);
+            return module2;
           });
         } else {
           factory(CRC323 = {});
@@ -289,68 +283,6 @@ var require_crc32 = __commonJS({
     });
   }
 });
-
-// src/index.ts
-var index_exports = {};
-__export(index_exports, {
-  AbstractPrintTask: () => AbstractPrintTask,
-  Abstraction: () => Abstraction,
-  AutoShutdownTime: () => AutoShutdownTime,
-  B1PrintTask: () => B1PrintTask,
-  B21V1PrintTask: () => B21V1PrintTask,
-  BatteryChargeLevel: () => BatteryChargeLevel,
-  ConnectEvent: () => ConnectEvent,
-  ConnectResult: () => ConnectResult,
-  D110MV4PrintTask: () => D110MV4PrintTask,
-  D110PrintTask: () => D110PrintTask,
-  DisconnectEvent: () => DisconnectEvent,
-  FirmwareProgressEvent: () => FirmwareProgressEvent,
-  HeartbeatEvent: () => HeartbeatEvent,
-  HeartbeatFailedEvent: () => HeartbeatFailedEvent,
-  HeartbeatType: () => HeartbeatType,
-  ImageEncoder: () => ImageEncoder,
-  LabelType: () => LabelType,
-  NIIMBOT_CLIENT_DEFAULTS: () => NIIMBOT_CLIENT_DEFAULTS,
-  NiimbotAbstractClient: () => NiimbotAbstractClient,
-  NiimbotBluetoothClient: () => NiimbotBluetoothClient,
-  NiimbotCapacitorBleClient: () => NiimbotCapacitorBleClient,
-  NiimbotCrc32Packet: () => NiimbotCrc32Packet,
-  NiimbotEvent: () => NiimbotEvent,
-  NiimbotPacket: () => NiimbotPacket,
-  NiimbotSerialClient: () => NiimbotSerialClient,
-  NiimbotUniAppBleClient: () => NiimbotUniAppBleClient,
-  OldD11PrintTask: () => OldD11PrintTask,
-  PacketGenerator: () => PacketGenerator,
-  PacketParser: () => PacketParser,
-  PacketReceivedEvent: () => PacketReceivedEvent,
-  PacketSentEvent: () => PacketSentEvent,
-  PrintError: () => PrintError,
-  PrintProgressEvent: () => PrintProgressEvent,
-  PrinterErrorCode: () => PrinterErrorCode,
-  PrinterInfoFetchedEvent: () => PrinterInfoFetchedEvent,
-  PrinterInfoType: () => PrinterInfoType,
-  PrinterModel: () => PrinterModel,
-  RawPacketReceivedEvent: () => RawPacketReceivedEvent,
-  RawPacketSentEvent: () => RawPacketSentEvent,
-  RequestCommandId: () => RequestCommandId,
-  ResponseCommandId: () => ResponseCommandId2,
-  SequentialDataReader: () => SequentialDataReader,
-  SoundSettingsItemType: () => SoundSettingsItemType,
-  SoundSettingsType: () => SoundSettingsType,
-  Utils: () => Utils,
-  Validators: () => Validators,
-  commandsMap: () => commandsMap,
-  findPrintTask: () => findPrintTask,
-  firmwareExchangePackets: () => firmwareExchangePackets,
-  getPrinterMetaById: () => getPrinterMetaById,
-  getPrinterMetaByModel: () => getPrinterMetaByModel,
-  instantiateClient: () => instantiateClient,
-  modelPrintTasks: () => modelPrintTasks,
-  modelsLibrary: () => modelsLibrary,
-  printTaskNames: () => printTaskNames,
-  printTasks: () => printTasks
-});
-module.exports = __toCommonJS(index_exports);
 
 // node_modules/eventemitter3/index.mjs
 var import_index = __toESM(require_eventemitter3(), 1);
@@ -561,8 +493,12 @@ var Mutex = class {
   }
 };
 
+// example-uniapp/libs/_capacitor-shim.js
+var Capacitor = { getPlatform() {
+  return "web";
+} };
+
 // src/utils.ts
-var import_core; try { import_core = require("@capacitor/core"); } catch(e) { import_core = { Capacitor: { getPlatform: function() { return "web"; } } }; }
 var Utils = class _Utils {
   /**
    * Converts a given number to its hexadecimal representation.
@@ -739,7 +675,7 @@ var Utils = class _Utils {
    */
   static getAvailableTransports() {
     return {
-      capacitorBle: import_core.Capacitor.getPlatform() !== "web",
+      capacitorBle: Capacitor.getPlatform() !== "web",
       webBluetooth: typeof navigator.bluetooth?.requestDevice !== "undefined",
       webSerial: typeof navigator.serial?.requestPort !== "undefined"
     };
@@ -3620,13 +3556,15 @@ var NiimbotBluetoothClient = class extends NiimbotAbstractClient {
   }
 };
 
+// example-uniapp/libs/_capacitor-ble-shim.js
+var BleClient = {};
+
 // src/client/capacitor_ble_impl.ts
-var import_bluetooth_le; try { import_bluetooth_le = require("@capacitor-community/bluetooth-le"); } catch(e) { import_bluetooth_le = {}; }
 var NiimbotCapacitorBleClient = class extends NiimbotAbstractClient {
   async connect(options) {
     await this.disconnect();
-    await import_bluetooth_le.BleClient.initialize({ androidNeverForLocation: true });
-    const bluetoothEnabled = await import_bluetooth_le.BleClient.isEnabled();
+    await BleClient.initialize({ androidNeverForLocation: true });
+    const bluetoothEnabled = await BleClient.isEnabled();
     if (!bluetoothEnabled) {
       throw new Error("Bluetooth is not enabled");
     }
@@ -3637,10 +3575,10 @@ var NiimbotCapacitorBleClient = class extends NiimbotAbstractClient {
         name: options.deviceId
       };
     } else {
-      device = await import_bluetooth_le.BleClient.requestDevice();
+      device = await BleClient.requestDevice();
     }
-    await import_bluetooth_le.BleClient.connect(device.deviceId, () => this.onBleDisconnect());
-    await import_bluetooth_le.BleClient.discoverServices(device.deviceId);
+    await BleClient.connect(device.deviceId, () => this.onBleDisconnect());
+    await BleClient.discoverServices(device.deviceId);
     const { service, characteristic } = await this.findSuitableCharacteristic(device.deviceId).finally(
       () => this.onBleDisconnect()
     );
@@ -3650,7 +3588,7 @@ var NiimbotCapacitorBleClient = class extends NiimbotAbstractClient {
     if (this.debug) {
       console.log("Suitable channel found:", { service, characteristic });
     }
-    await import_bluetooth_le.BleClient.startNotifications(this.deviceId, this.serviceUUID, this.characteristicUUID, (value) => {
+    await BleClient.startNotifications(this.deviceId, this.serviceUUID, this.characteristicUUID, (value) => {
       this.processRawPacket(value);
     });
     try {
@@ -3668,7 +3606,7 @@ var NiimbotCapacitorBleClient = class extends NiimbotAbstractClient {
     return result;
   }
   async findSuitableCharacteristic(devId) {
-    const services = await import_bluetooth_le.BleClient.getServices(devId);
+    const services = await BleClient.getServices(devId);
     for (const service of services) {
       if (service.uuid.length < 5) {
         continue;
@@ -3698,8 +3636,8 @@ var NiimbotCapacitorBleClient = class extends NiimbotAbstractClient {
   async disconnect() {
     this.stopHeartbeat();
     if (this.deviceId !== void 0) {
-      await import_bluetooth_le.BleClient.stopNotifications(this.deviceId, this.serviceUUID, this.characteristicUUID);
-      await import_bluetooth_le.BleClient.disconnect(this.deviceId);
+      await BleClient.stopNotifications(this.deviceId, this.serviceUUID, this.characteristicUUID);
+      await BleClient.disconnect(this.deviceId);
     }
     this.deviceId = void 0;
     this.info = {};
@@ -3711,7 +3649,7 @@ var NiimbotCapacitorBleClient = class extends NiimbotAbstractClient {
       }
       await Utils.sleep(this.packetIntervalMs);
       const dw = new DataView(data.buffer, data.byteOffset, data.byteLength);
-      await import_bluetooth_le.BleClient.writeWithoutResponse(this.deviceId, this.serviceUUID, this.characteristicUUID, dw);
+      await BleClient.writeWithoutResponse(this.deviceId, this.serviceUUID, this.characteristicUUID, dw);
       this.emit("rawpacketsent", new RawPacketSentEvent(data));
     };
     if (force) {
@@ -4057,8 +3995,7 @@ var instantiateClient = (t) => {
   }
   throw new Error("Invalid client type");
 };
-// Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
+export {
   AbstractPrintTask,
   Abstraction,
   AutoShutdownTime,
@@ -4099,7 +4036,7 @@ var instantiateClient = (t) => {
   RawPacketReceivedEvent,
   RawPacketSentEvent,
   RequestCommandId,
-  ResponseCommandId,
+  ResponseCommandId2 as ResponseCommandId,
   SequentialDataReader,
   SoundSettingsItemType,
   SoundSettingsType,
@@ -4115,7 +4052,7 @@ var instantiateClient = (t) => {
   modelsLibrary,
   printTaskNames,
   printTasks
-});
+};
 /*! Bundled license information:
 
 crc-32/crc32.js:

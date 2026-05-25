@@ -126,14 +126,14 @@
 </template>
 
 <script>
-const {
+import {
   NiimbotUniAppBleClient,
   RequestCommandId,
   ResponseCommandId,
   LabelType,
-} = require("@/libs/niimbluelib.js");
+} from "@/libs/niimbluelib.js";
 
-const { encodeUniCanvas } = require("@/utils/image-helper.js");
+import { encodeUniCanvas } from "@/utils/image-helper.js";
 
 const LABEL_TYPES = [
   { name: "有间距 (WithGaps)", value: LabelType.WithGaps },
