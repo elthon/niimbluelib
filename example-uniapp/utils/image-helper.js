@@ -111,7 +111,15 @@ function encodeUniCanvas(canvasId, width, height, printDirection, componentInsta
       height: height,
       success: function (res) {
         try {
-          var encoded = encodeImageData(res.data, width, height, printDirection);
+          var data = res.data;
+          var expectedLen = width * height * 4;
+          // Diagnostic: check pixel data
+          console.log("[niimblue] canvasGetImageData: expected=" + expectedLen +
+            " actual=" + data.length +
+            " first16=[" + Array.prototype.slice.call(data, 0, 16) + "]" +
+            " mid=[" + Array.prototype.slice.call(data, Math.floor(data.length / 2), Math.floor(data.length / 2) + 8) + "]");
+
+          var encoded = encodeImageData(data, width, height, printDirection);
           resolve(encoded);
         } catch (e) {
           reject(e);
