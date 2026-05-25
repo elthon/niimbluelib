@@ -173,6 +173,7 @@ export default {
 
   onReady() {
     this.drawTestPattern("lines");
+    this.log("页面就绪，等待操作");
   },
 
   onUnload() {
@@ -244,13 +245,26 @@ export default {
     async onScan() {
       this.connecting = true;
       this.log("开始扫描蓝牙设备...");
-      this.initClient();
+
       try {
+        this.initClient();
+        this.log("客户端已创建: " + (this.client ? this.client.constructor.name : "null"));
+      } catch (e) {
+        this.connecting = false;
+        this.log("创建客户端失败: " + e.message, "error");
+        this.log("Stack: " + (e.stack || ""), "error");
+        uni.showToast({ title: "创建客户端失败", icon: "none", duration: 3000 });
+        return;
+      }
+
+      try {
+        this.log("开始调用 connect()...");
         await this.client.connect({ scanTimeoutMs: 20000 });
       } catch (e) {
         this.connecting = false;
         this.log("连接失败: " + e.message, "error");
-        uni.showToast({ title: "连接失败", icon: "none", duration: 3000 });
+        this.log("Stack: " + (e.stack || ""), "error");
+        uni.showToast({ title: "连接失败: " + e.message, icon: "none", duration: 3000 });
       }
     },
 
