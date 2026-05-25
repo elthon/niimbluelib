@@ -3815,6 +3815,7 @@ var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
       this.mtu = mtuRes.mtu - 3;
     } catch {
     }
+    await Utils.sleep(500);
     const { serviceId, characteristicId } = await this.findSuitableCharacteristic(deviceId);
     this.serviceId = serviceId;
     this.characteristicId = characteristicId;
@@ -3899,6 +3900,7 @@ var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
         fail: (err) => reject(new Error(`getBLEDeviceServices failed: ${err.errMsg}`))
       });
     });
+    console.log("[niimblue] discovered services:", servicesRes.services.map((s) => s.uuid));
     for (const service of servicesRes.services) {
       if (service.uuid.length < 5) continue;
       const charsRes = await new Promise((resolve, reject) => {
@@ -3910,7 +3912,12 @@ var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
         });
       });
       for (const ch of charsRes.characteristics) {
-        if (ch.properties.notify && ch.properties.writeNoResponse) {
+        const p = ch.properties;
+        console.log("[niimblue] char:", ch.uuid, "props:", JSON.stringify(p));
+        const canNotify = p.notify || p.indicate;
+        const canWrite = p.writeNoResponse || p.writeDefault || p.write;
+        if (canNotify && canWrite) {
+          console.log("[niimblue] selected:", service.uuid, ch.uuid);
           return { serviceId: service.uuid, characteristicId: ch.uuid };
         }
       }
