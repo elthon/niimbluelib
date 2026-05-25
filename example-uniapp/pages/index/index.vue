@@ -92,7 +92,9 @@
       <view class="card-title">打印预览 ({{ canvasWidth }}×{{ canvasHeight }}px)</view>
       <view class="canvas-wrapper">
         <canvas canvas-id="printCanvas"
-          :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }"
+          :width="canvasWidth"
+          :height="canvasHeight"
+          :style="canvasStyle"
           class="print-canvas" />
       </view>
       <view class="btn-row">
@@ -186,6 +188,17 @@ export default {
       labelTypeNames: LABEL_TYPES.map((t) => t.name),
       screenWidth: 320,
     };
+  },
+
+  computed: {
+    canvasStyle() {
+      const maxW = this.getMaxCanvasWidth();
+      const scale = Math.min(1, maxW / this.canvasWidth);
+      return {
+        width: Math.round(this.canvasWidth * scale) + "px",
+        height: Math.round(this.canvasHeight * scale) + "px",
+      };
+    },
   },
 
   onReady() {
@@ -331,16 +344,7 @@ export default {
         wPx = Math.floor(meta.printheadPixels / 8) * 8;
       }
 
-      // UniApp old canvas: pixel buffer = CSS display size, can't exceed screen
-      const maxW = this.getMaxCanvasWidth();
-      if (wPx > maxW) {
-        const ratio = maxW / wPx;
-        hPx = Math.ceil(hPx * ratio / 8) * 8;
-        wPx = maxW;
-        this.log("画布受屏幕限制 (max " + maxW + "px)，使用 " + wPx + "x" + hPx + "px", "warn");
-      } else {
-        this.log("纸张 " + wMm + "x" + hMm + "mm @ " + dpi + "dpi = " + wPx + "x" + hPx + "px");
-      }
+      this.log("纸张 " + wMm + "x" + hMm + "mm @ " + dpi + "dpi = " + wPx + "x" + hPx + "px");
 
       this.canvasW = String(wPx);
       this.canvasH = String(hPx);
@@ -353,11 +357,14 @@ export default {
 
     onResizeCanvas() {
       let w = parseInt(this.canvasW) || 240;
-      const h = parseInt(this.canvasH) || 160;
-      if (w % 8 !== 0) w = Math.ceil(w / 8) * 8;
-      const maxW = this.getMaxCanvasWidth();
-      if (w > maxW) w = maxW;
+      let h = parseInt(this.canvasH) || 160;
+      if (this.printDirection === "left") {
+        if (h % 8 !== 0) h = Math.ceil(h / 8) * 8;
+      } else if (w % 8 !== 0) {
+        w = Math.ceil(w / 8) * 8;
+      }
       this.canvasW = String(w);
+      this.canvasH = String(h);
       this.canvasWidth = w;
       this.canvasHeight = h;
       this.$nextTick(() => this.drawTestPattern(this.currentPattern));
