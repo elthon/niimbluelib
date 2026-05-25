@@ -93,6 +93,8 @@
       <view class="canvas-wrapper">
         <view class="canvas-viewport" :style="canvasViewportStyle">
           <canvas canvas-id="printCanvas" :style="canvasStyle" class="print-canvas" />
+          <image v-if="previewImagePath" :src="previewImagePath" mode="widthFix" :style="previewImageStyle"
+            class="preview-image" />
         </view>
       </view>
       <view class="btn-row">
@@ -174,6 +176,7 @@ export default {
       canvasH: "184",
       canvasWidth: 240,
       canvasHeight: 184,
+      previewImagePath: "",
 
       currentPattern: "lines",
       printing: false,
@@ -206,6 +209,12 @@ export default {
         height: this.canvasHeight + "px",
         transform: "scale(" + this.canvasScale + ")",
         transformOrigin: "0 0",
+      };
+    },
+
+    previewImageStyle() {
+      return {
+        width: Math.round(this.canvasWidth * this.canvasScale) + "px",
       };
     },
   },
@@ -399,7 +408,27 @@ export default {
       const w = this.canvasWidth;
       const h = this.canvasHeight;
       this._drawPatternToCtx(ctx, w, h, pattern);
-      ctx.draw();
+      ctx.draw(false, () => {
+        setTimeout(() => this.updatePreviewImage(), 80);
+      });
+    },
+
+    updatePreviewImage() {
+      uni.canvasToTempFilePath({
+        canvasId: "printCanvas",
+        x: 0,
+        y: 0,
+        width: this.canvasWidth,
+        height: this.canvasHeight,
+        destWidth: this.canvasWidth,
+        destHeight: this.canvasHeight,
+        success: (res) => {
+          this.previewImagePath = res.tempFilePath;
+        },
+        fail: (err) => {
+          this.log("生成完整预览失败: " + err.errMsg, "warn");
+        },
+      }, this);
     },
 
     _drawPatternToCtx(ctx, w, h, pattern) {
@@ -539,8 +568,9 @@ export default {
 .size-x { font-size: 14px; color: #999; }
 
 .canvas-wrapper { display: flex; justify-content: center; padding: 12px; background: #f9f9f9; border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
-.canvas-viewport { overflow: hidden; }
+.canvas-viewport { position: relative; overflow: hidden; }
 .print-canvas { background: #fff; border: 1rpx solid #ddd; }
+.preview-image { position: absolute; left: 0; top: 0; background: #fff; border: 1rpx solid #ddd; }
 
 .progress-section { margin-bottom: 12px; }
 .progress-text { font-size: 13px; color: #666; margin-bottom: 6px; }
