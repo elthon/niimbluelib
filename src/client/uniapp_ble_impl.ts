@@ -97,9 +97,15 @@ export class NiimbotUniAppBleClient extends NiimbotAbstractClient {
           fail: () => reject(),
         });
       });
-      this.mtu = mtuRes.mtu - 3; // ATT overhead
+      const negotiated = (mtuRes.mtu ?? 0) - 3; // ATT overhead
+      console.log("[niimblue] MTU negotiated:", mtuRes.mtu, "-> payload:", negotiated);
+      if (negotiated >= 20) {
+        this.mtu = negotiated;
+      }
+      // else keep default 20
     } catch {
       // iOS or unsupported — keep default 20
+      console.log("[niimblue] MTU negotiation skipped, using default:", this.mtu);
     }
 
     // Some devices need time to discover services after connection

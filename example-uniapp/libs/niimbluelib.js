@@ -3813,8 +3813,13 @@ var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
           fail: () => reject()
         });
       });
-      this.mtu = mtuRes.mtu - 3;
+      const negotiated = (mtuRes.mtu ?? 0) - 3;
+      console.log("[niimblue] MTU negotiated:", mtuRes.mtu, "-> payload:", negotiated);
+      if (negotiated >= 20) {
+        this.mtu = negotiated;
+      }
     } catch {
+      console.log("[niimblue] MTU negotiation skipped, using default:", this.mtu);
     }
     await Utils.sleep(500);
     const { serviceId, characteristicId, writeType } = await this.findSuitableCharacteristic(deviceId);
