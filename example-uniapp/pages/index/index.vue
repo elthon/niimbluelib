@@ -5,7 +5,7 @@
       <view class="card-title">蓝牙连接</view>
       <view class="status-row">
         <view class="status-dot" :class="connected ? 'online' : 'offline'"></view>
-        <text class="status-text">{{ connected ? `已连接: ${deviceName}` : '未连接' }}</text>
+        <text class="status-text">{{ statusText }}</text>
       </view>
 
       <view v-if="connected && printerInfo.modelId" class="info-grid">
@@ -15,15 +15,15 @@
         </view>
         <view class="info-item">
           <text class="info-label">电量</text>
-          <text class="info-value">{{ printerInfo.charge ?? '-' }}%</text>
+          <text class="info-value">{{ displayCharge }}%</text>
         </view>
         <view class="info-item">
           <text class="info-label">固件</text>
-          <text class="info-value">{{ printerInfo.softwareVersion ?? '-' }}</text>
+          <text class="info-value">{{ displayFirmware }}</text>
         </view>
         <view class="info-item">
           <text class="info-label">序列号</text>
-          <text class="info-value">{{ printerInfo.serial ?? '-' }}</text>
+          <text class="info-value">{{ displaySerial }}</text>
         </view>
       </view>
 
@@ -49,20 +49,20 @@
       <view class="form-item">
         <text class="form-label">浓度 ({{ density }})</text>
         <slider :value="density" :min="1" :max="5" :step="1" show-value
-          activeColor="#333" @change="density = $event.detail.value" />
+          activeColor="#333" @change="onDensityChange" />
       </view>
 
       <view class="form-item">
         <text class="form-label">打印份数 ({{ quantity }})</text>
         <slider :value="quantity" :min="1" :max="10" :step="1" show-value
-          activeColor="#333" @change="quantity = $event.detail.value" />
+          activeColor="#333" @change="onQuantityChange" />
       </view>
 
       <view class="form-item">
         <text class="form-label">打印方向</text>
-        <picker :range="['左旋90° (left)', '从上到下 (top)']" :value="printDirection === 'left' ? 0 : 1"
-          @change="printDirection = $event.detail.value === 0 ? 'left' : 'top'">
-          <view class="picker-value">{{ printDirection === 'left' ? '左旋90° (left)' : '从上到下 (top)' }} ▾</view>
+        <picker :range="directionNames" :value="printDirection === 'left' ? 0 : 1"
+          @change="onDirectionChange">
+          <view class="picker-value">{{ directionLabel }} ▾</view>
         </picker>
       </view>
 
@@ -81,8 +81,7 @@
     <view class="card">
       <view class="card-title">打印预览</view>
       <view class="canvas-wrapper">
-        <canvas canvas-id="printCanvas" :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }"
-          class="print-canvas" />
+        <canvas canvas-id="printCanvas" :style="canvasStyle" class="print-canvas" />
       </view>
       <view class="btn-row">
         <button class="btn btn-small" @click="drawTestPattern('lines')">线条</button>
@@ -97,9 +96,7 @@
       <view class="card-title">执行打印</view>
 
       <view v-if="printing" class="progress-section">
-        <view class="progress-text">
-          {{ printStatus }}
-        </view>
+        <view class="progress-text">{{ printStatus }}</view>
         <progress :percent="printProgress" :active="printing" activeColor="#333" stroke-width="4" />
       </view>
 
@@ -114,11 +111,11 @@
     <view class="card">
       <view class="card-title">
         <text>通信日志</text>
-        <text class="log-clear" @click="logs = []">清空</text>
+        <text class="log-clear" @click="clearLogs">清空</text>
       </view>
       <scroll-view class="log-pane" scroll-y :scroll-top="logScrollTop">
-        <view v-for="(log, i) in logs" :key="i" class="log-line" :class="log.type">
-          <text>{{ log.text }}</text>
+        <view v-for="(item, i) in logs" :key="i" class="log-line" :class="item.type">
+          <text>{{ item.text }}</text>
         </view>
         <view v-if="logs.length === 0" class="log-empty">
           <text>暂无日志</text>
@@ -129,15 +126,16 @@
 </template>
 
 <script>
-import {
-  NiimbotUniAppBleClient,
-  RequestCommandId,
-  ResponseCommandId,
-  LabelType,
-} from "@mmote/niimbluelib";
-import { encodeUniCanvas } from "../../utils/image-helper.js";
+// 使用相对路径引用父目录编译产物，避免 HBuilderX 包名解析问题
+var niimbluelib = require("../../dist/cjs/index.js");
+var NiimbotUniAppBleClient = niimbluelib.NiimbotUniAppBleClient;
+var RequestCommandId = niimbluelib.RequestCommandId;
+var ResponseCommandId = niimbluelib.ResponseCommandId;
+var LabelType = niimbluelib.LabelType;
 
-const LABEL_TYPES = [
+var encodeUniCanvas = require("../../utils/image-helper.js").encodeUniCanvas;
+
+var LABEL_TYPES = [
   { name: "有间距 (WithGaps)", value: LabelType.WithGaps },
   { name: "黑标 (Black)", value: LabelType.Black },
   { name: "连续 (Continuous)", value: LabelType.Continuous },
@@ -145,7 +143,7 @@ const LABEL_TYPES = [
 ];
 
 export default {
-  data() {
+  data: function () {
     return {
       client: null,
       connected: false,
@@ -169,132 +167,178 @@ export default {
       logs: [],
       logScrollTop: 0,
 
-      labelTypeNames: LABEL_TYPES.map((t) => t.name),
+      labelTypeNames: LABEL_TYPES.map(function (t) { return t.name; }),
+      directionNames: ["左旋90° (left)", "从上到下 (top)"],
     };
   },
 
-  onReady() {
+  computed: {
+    statusText: function () {
+      if (this.connected) {
+        return "已连接: " + this.deviceName;
+      }
+      return "未连接";
+    },
+    displayCharge: function () {
+      return this.printerInfo.charge != null ? this.printerInfo.charge : "-";
+    },
+    displayFirmware: function () {
+      return this.printerInfo.softwareVersion != null ? this.printerInfo.softwareVersion : "-";
+    },
+    displaySerial: function () {
+      return this.printerInfo.serial != null ? this.printerInfo.serial : "-";
+    },
+    directionLabel: function () {
+      return this.printDirection === "left" ? "左旋90° (left)" : "从上到下 (top)";
+    },
+    canvasStyle: function () {
+      return "width:" + this.canvasWidth + "px;height:" + this.canvasHeight + "px";
+    },
+  },
+
+  onReady: function () {
     this.drawTestPattern("lines");
   },
 
-  onUnload() {
+  onUnload: function () {
     if (this.client) {
       this.client.disconnect();
     }
   },
 
   methods: {
-    log(text, type = "info") {
-      this.logs.push({ text, type });
+    log: function (text, type) {
+      type = type || "info";
+      this.logs.push({ text: text, type: type });
       if (this.logs.length > 500) {
         this.logs = this.logs.slice(-300);
       }
-      this.$nextTick(() => {
-        this.logScrollTop = this.logs.length * 40;
+      var self = this;
+      this.$nextTick(function () {
+        self.logScrollTop = self.logs.length * 40;
       });
     },
 
-    initClient() {
-      const client = new NiimbotUniAppBleClient();
+    clearLogs: function () {
+      this.logs = [];
+    },
 
-      client.on("packetsent", (e) => {
-        const name = RequestCommandId[e.packet.command] || `0x${e.packet.command.toString(16)}`;
-        this.log(`>> ${name}`, "sent");
+    initClient: function () {
+      var self = this;
+      var client = new NiimbotUniAppBleClient();
+
+      client.on("packetsent", function (e) {
+        var name = RequestCommandId[e.packet.command] || ("0x" + e.packet.command.toString(16));
+        self.log(">> " + name, "sent");
       });
 
-      client.on("packetreceived", (e) => {
-        const name = ResponseCommandId[e.packet.command] || `0x${e.packet.command.toString(16)}`;
-        this.log(`<< ${name}`, "recv");
+      client.on("packetreceived", function (e) {
+        var name = ResponseCommandId[e.packet.command] || ("0x" + e.packet.command.toString(16));
+        self.log("<< " + name, "recv");
       });
 
-      client.on("connect", (e) => {
-        this.connected = true;
-        this.connecting = false;
-        this.deviceName = e.info.deviceName || "未知设备";
-        this.log(`已连接: ${this.deviceName}`, "success");
+      client.on("connect", function (e) {
+        self.connected = true;
+        self.connecting = false;
+        self.deviceName = e.info.deviceName || "未知设备";
+        self.log("已连接: " + self.deviceName, "success");
       });
 
-      client.on("disconnect", () => {
-        this.connected = false;
-        this.printerInfo = {};
-        this.deviceName = "";
-        this.log("已断开连接", "warn");
+      client.on("disconnect", function () {
+        self.connected = false;
+        self.printerInfo = {};
+        self.deviceName = "";
+        self.log("已断开连接", "warn");
       });
 
-      client.on("printerinfofetched", (e) => {
-        this.printerInfo = { ...e.info };
-        this.log(`打印机型号ID: ${e.info.modelId}, 电量: ${e.info.charge}%`, "success");
+      client.on("printerinfofetched", function (e) {
+        self.printerInfo = JSON.parse(JSON.stringify(e.info));
+        var charge = e.info.charge != null ? e.info.charge : "?";
+        self.log("打印机型号ID: " + e.info.modelId + ", 电量: " + charge + "%", "success");
       });
 
-      client.on("printprogress", (e) => {
-        this.printProgress = Math.round(
+      client.on("printprogress", function (e) {
+        self.printProgress = Math.round(
           ((e.page / e.pagesTotal) * 50) +
           (e.pagePrintProgress / e.pagesTotal * 0.3) +
           (e.pageFeedProgress / e.pagesTotal * 0.2)
         );
-        this.printStatus = `第 ${e.page + 1}/${e.pagesTotal} 页 | 打印 ${e.pagePrintProgress}% | 出纸 ${e.pageFeedProgress}%`;
+        self.printStatus = "第 " + (e.page + 1) + "/" + e.pagesTotal + " 页 | 打印 " + e.pagePrintProgress + "% | 出纸 " + e.pageFeedProgress + "%";
       });
 
-      client.on("heartbeat", (e) => {
-        // 静默更新电量
+      client.on("heartbeat", function (e) {
         if (e.data.batteryPercent !== undefined) {
-          this.printerInfo = { ...this.printerInfo, charge: e.data.batteryPercent };
+          var info = JSON.parse(JSON.stringify(self.printerInfo));
+          info.charge = e.data.batteryPercent;
+          self.printerInfo = info;
         }
       });
 
-      client.on("heartbeatfailed", (e) => {
+      client.on("heartbeatfailed", function (e) {
         if (e.failedAttempts >= 3) {
-          this.log(`心跳连续失败 ${e.failedAttempts} 次`, "warn");
+          self.log("心跳连续失败 " + e.failedAttempts + " 次", "warn");
         }
       });
 
       this.client = client;
     },
 
-    async onScan() {
+    onScan: function () {
+      var self = this;
       this.connecting = true;
       this.log("开始扫描蓝牙设备...");
 
       this.initClient();
 
-      try {
-        await this.client.connect({ scanTimeoutMs: 20000 });
-      } catch (e) {
-        this.connecting = false;
-        this.log(`连接失败: ${e.message}`, "error");
-        uni.showToast({ title: `连接失败: ${e.message}`, icon: "none", duration: 3000 });
-      }
+      this.client.connect({ scanTimeoutMs: 20000 }).catch(function (e) {
+        self.connecting = false;
+        self.log("连接失败: " + e.message, "error");
+        uni.showToast({ title: "连接失败: " + e.message, icon: "none", duration: 3000 });
+      });
     },
 
-    async onDisconnect() {
+    onDisconnect: function () {
       if (this.client) {
-        await this.client.disconnect();
+        this.client.disconnect();
         this.client = null;
       }
     },
 
-    onLabelTypeChange(e) {
+    onLabelTypeChange: function (e) {
       this.labelTypeIndex = e.detail.value;
     },
 
-    onResizeCanvas() {
-      const w = parseInt(this.canvasW) || 240;
-      const h = parseInt(this.canvasH) || 160;
+    onDensityChange: function (e) {
+      this.density = e.detail.value;
+    },
+
+    onQuantityChange: function (e) {
+      this.quantity = e.detail.value;
+    },
+
+    onDirectionChange: function (e) {
+      this.printDirection = e.detail.value == 0 ? "left" : "top";
+    },
+
+    onResizeCanvas: function () {
+      var w = parseInt(this.canvasW) || 240;
+      var h = parseInt(this.canvasH) || 160;
       if (w % 8 !== 0) {
         uni.showToast({ title: "宽度必须是 8 的倍数", icon: "none" });
         return;
       }
       this.canvasWidth = w;
       this.canvasHeight = h;
-      this.$nextTick(() => {
-        this.drawTestPattern("lines");
+      var self = this;
+      this.$nextTick(function () {
+        self.drawTestPattern("lines");
       });
     },
 
-    drawTestPattern(pattern) {
-      const ctx = uni.createCanvasContext("printCanvas", this);
-      const w = this.canvasWidth;
-      const h = this.canvasHeight;
+    drawTestPattern: function (pattern) {
+      var ctx = uni.createCanvasContext("printCanvas", this);
+      var w = this.canvasWidth;
+      var h = this.canvasHeight;
 
       // 白色背景
       ctx.setFillStyle("#ffffff");
@@ -304,131 +348,102 @@ export default {
       ctx.setFillStyle("#000000");
       ctx.setLineWidth(2);
 
-      switch (pattern) {
-        case "lines":
-          // 边框
-          ctx.strokeRect(1, 1, w - 2, h - 2);
-          // 对角线
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.lineTo(w, h);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(w, 0);
-          ctx.lineTo(0, h);
-          ctx.stroke();
-          // 中心十字
-          ctx.beginPath();
-          ctx.moveTo(w / 2, 0);
-          ctx.lineTo(w / 2, h);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(0, h / 2);
-          ctx.lineTo(w, h / 2);
-          ctx.stroke();
-          break;
-
-        case "grid":
-          for (let x = 0; x < w; x += 16) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, h);
-            ctx.stroke();
-          }
-          for (let y = 0; y < h; y += 16) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(w, y);
-            ctx.stroke();
-          }
-          break;
-
-        case "text":
-          ctx.setFontSize(20);
-          ctx.setTextAlign("center");
-          ctx.setTextBaseline("middle");
-          ctx.fillText("NiimBlue", w / 2, h / 3);
-          ctx.setFontSize(14);
-          ctx.fillText("打印测试", w / 2, h / 3 + 28);
-          ctx.setFontSize(12);
-          ctx.fillText(`${w}×${h}`, w / 2, h / 3 + 52);
-          // 边框
-          ctx.strokeRect(1, 1, w - 2, h - 2);
-          break;
-
-        case "fill":
-          ctx.fillRect(0, 0, w, h);
-          break;
+      if (pattern === "lines") {
+        ctx.strokeRect(1, 1, w - 2, h - 2);
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(w, h); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(w, 0); ctx.lineTo(0, h); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+      } else if (pattern === "grid") {
+        for (var x = 0; x < w; x += 16) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+        }
+        for (var y = 0; y < h; y += 16) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        }
+      } else if (pattern === "text") {
+        ctx.setFontSize(20);
+        ctx.setTextAlign("center");
+        ctx.setTextBaseline("middle");
+        ctx.fillText("NiimBlue", w / 2, h / 3);
+        ctx.setFontSize(14);
+        ctx.fillText("打印测试", w / 2, h / 3 + 28);
+        ctx.setFontSize(12);
+        ctx.fillText(w + " x " + h, w / 2, h / 3 + 52);
+        ctx.strokeRect(1, 1, w - 2, h - 2);
+      } else if (pattern === "fill") {
+        ctx.fillRect(0, 0, w, h);
       }
 
       ctx.draw();
     },
 
-    async onPrint() {
+    onPrint: function () {
       if (!this.client || !this.connected) {
         uni.showToast({ title: "请先连接打印机", icon: "none" });
         return;
       }
 
+      var self = this;
       this.printing = true;
       this.printProgress = 0;
       this.printStatus = "编码图像...";
       this.log("开始打印流程");
 
-      try {
-        // 编码画布图像
-        const encoded = await encodeUniCanvas(
-          "printCanvas",
-          this.canvasWidth,
-          this.canvasHeight,
-          this.printDirection,
-          this
-        );
+      encodeUniCanvas(
+        "printCanvas",
+        this.canvasWidth,
+        this.canvasHeight,
+        this.printDirection,
+        this
+      ).then(function (encoded) {
+        self.log("图像编码完成: " + encoded.cols + "x" + encoded.rows + ", " + encoded.rowsData.length + " 行数据");
+        self.printStatus = "初始化打印任务...";
 
-        this.log(`图像编码完成: ${encoded.cols}×${encoded.rows}, ${encoded.rowsData.length} 行数据`);
-        this.printStatus = "初始化打印任务...";
+        var printTaskName = self.client.getPrintTaskType() || "B1";
+        self.log("打印任务类型: " + printTaskName);
 
-        // 获取打印任务类型
-        const printTaskName = this.client.getPrintTaskType() ?? "B1";
-        this.log(`打印任务类型: ${printTaskName}`);
+        var labelType = LABEL_TYPES[self.labelTypeIndex].value;
 
-        const labelType = LABEL_TYPES[this.labelTypeIndex].value;
-
-        const printTask = this.client.abstraction.newPrintTask(printTaskName, {
-          totalPages: this.quantity,
-          density: this.density,
+        var printTask = self.client.abstraction.newPrintTask(printTaskName, {
+          totalPages: self.quantity,
+          density: self.density,
           labelType: labelType,
           statusPollIntervalMs: 100,
           statusTimeoutMs: 10000,
         });
 
-        this.printStatus = "发送打印指令...";
-        await printTask.printInit();
-        this.log("printInit 完成");
-
-        this.printStatus = "发送图像数据...";
-        await printTask.printPage(encoded, this.quantity);
-        this.log("printPage 完成");
-
-        this.printStatus = "等待打印完成...";
-        await printTask.waitForPageFinished();
-        await printTask.waitForFinished();
-
-        this.printProgress = 100;
-        this.printStatus = "打印完成!";
-        this.log("打印完成!", "success");
-        uni.showToast({ title: "打印完成", icon: "success" });
-
-        await printTask.printEnd();
-      } catch (e) {
-        this.log(`打印失败: ${e.message}`, "error");
-        this.printStatus = `失败: ${e.message}`;
-        uni.showToast({ title: `打印失败: ${e.message}`, icon: "none", duration: 3000 });
-      } finally {
-        setTimeout(() => {
-          this.printing = false;
+        self.printStatus = "发送打印指令...";
+        return printTask.printInit().then(function () {
+          self.log("printInit 完成");
+          self.printStatus = "发送图像数据...";
+          return printTask.printPage(encoded, self.quantity);
+        }).then(function () {
+          self.log("printPage 完成");
+          self.printStatus = "等待打印完成...";
+          return printTask.waitForPageFinished();
+        }).then(function () {
+          return printTask.waitForFinished();
+        }).then(function () {
+          self.printProgress = 100;
+          self.printStatus = "打印完成!";
+          self.log("打印完成!", "success");
+          uni.showToast({ title: "打印完成", icon: "success" });
+          return printTask.printEnd();
+        }).catch(function (e) {
+          self.log("打印失败: " + e.message, "error");
+          self.printStatus = "失败: " + e.message;
+          uni.showToast({ title: "打印失败", icon: "none", duration: 3000 });
+          return printTask.printEnd();
+        });
+      }).catch(function (e) {
+        self.log("编码失败: " + e.message, "error");
+        self.printStatus = "编码失败";
+      }).finally(function () {
+        setTimeout(function () {
+          self.printing = false;
         }, 2000);
-      }
+      });
     },
   },
 };
@@ -512,7 +527,6 @@ export default {
 /* 按钮 */
 .btn-row {
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -524,7 +538,7 @@ export default {
   border-radius: 8px;
   font-size: 14px;
   border: none;
-  margin: 0;
+  margin: 0 4px;
 }
 
 .btn-primary {
@@ -586,7 +600,6 @@ export default {
 .size-row {
   display: flex;
   align-items: center;
-  gap: 4px;
 }
 
 .size-input {
@@ -596,6 +609,7 @@ export default {
   border-radius: 6px;
   text-align: center;
   font-size: 13px;
+  margin: 0 4px;
 }
 
 .size-x {
@@ -611,7 +625,7 @@ export default {
   background: #f9f9f9;
   border-radius: 8px;
   margin-bottom: 10px;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .print-canvas {
