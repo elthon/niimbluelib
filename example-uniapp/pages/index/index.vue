@@ -67,11 +67,21 @@
       </view>
 
       <view class="form-item">
-        <text class="form-label">画布尺寸</text>
+        <text class="form-label">纸张尺寸 (mm)</text>
         <view class="size-row">
-          <input class="size-input" type="number" v-model="canvasW" placeholder="宽" />
+          <input class="size-input" type="number" v-model="paperW" placeholder="宽mm" />
           <text class="size-x">×</text>
-          <input class="size-input" type="number" v-model="canvasH" placeholder="高" />
+          <input class="size-input" type="number" v-model="paperH" placeholder="高mm" />
+          <button class="btn btn-small" @click="onCalcFromPaper">换算</button>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">画布像素 (DPI: {{ printerDpi }})</text>
+        <view class="size-row">
+          <input class="size-input" type="number" v-model="canvasW" placeholder="宽px" />
+          <text class="size-x">×</text>
+          <input class="size-input" type="number" v-model="canvasH" placeholder="高px" />
           <button class="btn btn-small" @click="onResizeCanvas">应用</button>
         </view>
       </view>
@@ -155,10 +165,13 @@ export default {
       density: 2,
       quantity: 1,
       printDirection: "left",
-      canvasW: "240",
-      canvasH: "160",
-      canvasWidth: 240,
-      canvasHeight: 160,
+      paperW: "80",
+      paperH: "60",
+      printerDpi: 203,
+      canvasW: "640",
+      canvasH: "480",
+      canvasWidth: 640,
+      canvasHeight: 480,
 
       printing: false,
       printProgress: 0,
@@ -217,6 +230,17 @@ export default {
       client.on("printerinfofetched", (e) => {
         this.printerInfo = { ...e.info };
         this.log("型号ID: " + e.info.modelId + ", 电量: " + (e.info.charge || "?") + "%", "success");
+
+        // Auto-detect DPI from printer model metadata
+        const meta = client.getModelMetadata();
+        if (meta) {
+          this.printerDpi = meta.dpi;
+          this.log("检测到打印机: " + meta.model + ", DPI: " + meta.dpi + ", 打印头: " + meta.printheadPixels + "px", "success");
+          // Auto-recalculate canvas size from paper dimensions
+          this.onCalcFromPaper();
+        } else {
+          this.log("未找到型号元数据 (modelId=" + e.info.modelId + ")，使用默认 DPI 203", "warn");
+        }
       });
 
       client.on("printprogress", (e) => {
@@ -271,6 +295,24 @@ export default {
     async onDisconnect() {
       await this.client?.disconnect();
       this.client = null;
+    },
+
+    mmToPixels(mm, dpi) {
+      // mm -> pixels, round to nearest 8
+      const px = Math.round(mm * dpi / 25.4);
+      return Math.ceil(px / 8) * 8;
+    },
+
+    onCalcFromPaper() {
+      const wMm = parseFloat(this.paperW) || 80;
+      const hMm = parseFloat(this.paperH) || 60;
+      const dpi = this.printerDpi || 203;
+      const wPx = this.mmToPixels(wMm, dpi);
+      const hPx = this.mmToPixels(hMm, dpi);
+      this.canvasW = String(wPx);
+      this.canvasH = String(hPx);
+      this.log("纸张 " + wMm + "x" + hMm + "mm @ " + dpi + "dpi = " + wPx + "x" + hPx + "px");
+      this.onResizeCanvas();
     },
 
     onResizeCanvas() {
