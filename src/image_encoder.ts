@@ -115,6 +115,9 @@ export class ImageEncoder {
     }
 
     idx *= 4;
+    if (idx + 3 >= iData.data.length) {
+      return false;
+    }
     if (iData.data[idx + 3] === 0) {
       return false;
     }
