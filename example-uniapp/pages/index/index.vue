@@ -198,19 +198,7 @@ export default {
       this.screenWidth = sysInfo.windowWidth || 360;
     } catch (e) { this.screenWidth = 360; }
 
-    // Get Canvas 2D node
-    const query = uni.createSelectorQuery().in(this);
-    query.select('#printCanvas').node((res) => {
-      if (res && res.node) {
-        this.canvasNode = res.node;
-        this.canvasCtx = res.node.getContext('2d');
-        this.applyCanvasSize();
-        this.drawTestPattern("lines");
-        this.log("Canvas 2D 就绪，屏幕宽度: " + this.screenWidth + "px");
-      } else {
-        this.log("Canvas 2D 初始化失败!", "error");
-      }
-    }).exec();
+    this.initCanvas();
   },
 
   onUnload() {
@@ -218,6 +206,26 @@ export default {
   },
 
   methods: {
+    initCanvas() {
+      const self = this;
+      // Canvas 2D: query the node to get canvas and context
+      uni.createSelectorQuery().in(this)
+        .select('#printCanvas')
+        .fields({ node: true, size: true }, function (res) {
+          console.log("[niimblue] canvas query result:", JSON.stringify(res));
+          if (res && res.node) {
+            self.canvasNode = res.node;
+            self.canvasCtx = res.node.getContext('2d');
+            self.applyCanvasSize();
+            self.drawTestPattern("lines");
+            self.log("Canvas 2D 就绪 (" + self.canvasNode.width + "x" + self.canvasNode.height + ")，屏幕: " + self.screenWidth + "px");
+          } else {
+            self.log("Canvas 2D node 获取失败，res=" + JSON.stringify(res), "error");
+          }
+        })
+        .exec();
+    },
+
     log(text, type = "info") {
       this.logs.push({ text, type });
       if (this.logs.length > 500) this.logs = this.logs.slice(-300);
@@ -386,7 +394,11 @@ export default {
     drawTestPattern(pattern) {
       this.currentPattern = pattern;
       const ctx = this.canvasCtx;
-      if (!ctx) return;
+      if (!ctx) {
+        console.log("[niimblue] drawTestPattern: ctx not ready, will retry after initCanvas");
+        this.initCanvas();
+        return;
+      }
       const w = this.canvasWidth;
       const h = this.canvasHeight;
 
