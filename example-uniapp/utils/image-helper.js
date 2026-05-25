@@ -12,6 +12,7 @@ function isPixelNonWhite(data, x, y, width, height, printDirection) {
     idx = (height - 1 - x) * width + y;
   }
   idx *= 4;
+  if (data[idx + 3] === 0) return false;
   return data[idx] !== 255 || data[idx + 1] !== 255 || data[idx + 2] !== 255;
 }
 
@@ -116,6 +117,7 @@ function encodeUniCanvas(canvasId, width, height, printDirection, componentInsta
           // Diagnostic: check pixel data
           console.log("[niimblue] canvasGetImageData: expected=" + expectedLen +
             " actual=" + data.length +
+            " size=" + res.width + "x" + res.height +
             " first16=[" + Array.prototype.slice.call(data, 0, 16) + "]" +
             " mid=[" + Array.prototype.slice.call(data, Math.floor(data.length / 2), Math.floor(data.length / 2) + 8) + "]");
 

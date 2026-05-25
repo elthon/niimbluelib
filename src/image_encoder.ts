@@ -115,6 +115,9 @@ export class ImageEncoder {
     }
 
     idx *= 4;
+    if (iData.data[idx + 3] === 0) {
+      return false;
+    }
     return iData.data[idx] !== 255 || iData.data[idx + 1] !== 255 || iData.data[idx + 2] !== 255;
   }
 

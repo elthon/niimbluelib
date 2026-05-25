@@ -91,11 +91,9 @@
     <view class="card">
       <view class="card-title">打印预览 ({{ canvasWidth }}×{{ canvasHeight }}px)</view>
       <view class="canvas-wrapper">
-        <canvas canvas-id="printCanvas"
-          :width="canvasWidth"
-          :height="canvasHeight"
-          :style="canvasStyle"
-          class="print-canvas" />
+        <view class="canvas-viewport" :style="canvasViewportStyle">
+          <canvas canvas-id="printCanvas" :style="canvasStyle" class="print-canvas" />
+        </view>
       </view>
       <view class="btn-row">
         <button class="btn btn-small" :class="currentPattern==='lines'?'btn-active':''" @click="drawTestPattern('lines')">线条</button>
@@ -191,12 +189,23 @@ export default {
   },
 
   computed: {
-    canvasStyle() {
-      const maxW = this.getMaxCanvasWidth();
-      const scale = Math.min(1, maxW / this.canvasWidth);
+    canvasScale() {
+      return Math.min(1, this.getMaxCanvasWidth() / this.canvasWidth);
+    },
+
+    canvasViewportStyle() {
       return {
-        width: Math.round(this.canvasWidth * scale) + "px",
-        height: Math.round(this.canvasHeight * scale) + "px",
+        width: Math.round(this.canvasWidth * this.canvasScale) + "px",
+        height: Math.round(this.canvasHeight * this.canvasScale) + "px",
+      };
+    },
+
+    canvasStyle() {
+      return {
+        width: this.canvasWidth + "px",
+        height: this.canvasHeight + "px",
+        transform: "scale(" + this.canvasScale + ")",
+        transformOrigin: "0 0",
       };
     },
   },
@@ -530,6 +539,7 @@ export default {
 .size-x { font-size: 14px; color: #999; }
 
 .canvas-wrapper { display: flex; justify-content: center; padding: 12px; background: #f9f9f9; border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+.canvas-viewport { overflow: hidden; }
 .print-canvas { background: #fff; border: 1rpx solid #ddd; }
 
 .progress-section { margin-bottom: 12px; }
