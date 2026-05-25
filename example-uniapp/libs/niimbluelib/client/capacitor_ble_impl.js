@@ -5,7 +5,8 @@ const events_1 = require("../events");
 const _1 = require(".");
 const packets_1 = require("../packets");
 const utils_1 = require("../utils");
-const bluetooth_le_1 = require("@capacitor-community/bluetooth-le");
+var bluetooth_le_1;
+try { bluetooth_le_1 = require("@capacitor-community/bluetooth-le"); } catch(e) { bluetooth_le_1 = {}; }
 /**
  * Uses [@capacitor-community/bluetooth-le](https://github.com/capacitor-community/bluetooth-le)
  *
