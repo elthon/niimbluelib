@@ -287,15 +287,19 @@ export class NiimbotUniAppBleClient extends NiimbotAbstractClient {
       await Utils.sleep(this.packetIntervalMs);
 
       for (let offset = 0; offset < data.length; offset += this.mtu) {
-        const chunk = data.slice(offset, offset + this.mtu);
-        // UniApp requires an independent ArrayBuffer; slice to detach from the parent buffer
-        const buffer = chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength);
+        const end = Math.min(offset + this.mtu, data.length);
+        // Build a brand-new ArrayBuffer (some UniApp runtimes reject sliced/shared buffers)
+        const ab = new ArrayBuffer(end - offset);
+        new Uint8Array(ab).set(data.subarray(offset, end));
+
+        console.log("[niimblue] write chunk", offset, "len", ab.byteLength, "writeType", this.writeType);
+
         await new Promise<void>((resolve, reject) => {
           uni.writeBLECharacteristicValue({
             deviceId: this.deviceId!,
             serviceId: this.serviceId!,
             characteristicId: this.characteristicId!,
-            value: buffer,
+            value: ab,
             writeType: this.writeType as any,
             success: () => resolve(),
             fail: (err) => reject(new Error(`writeBLECharacteristicValue failed: ${err.errMsg}`)),
