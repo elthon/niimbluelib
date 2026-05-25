@@ -89,10 +89,12 @@
 
     <!-- 画布预览 -->
     <view class="card">
-      <view class="card-title">打印预览</view>
-      <view class="canvas-wrapper">
+      <view class="card-title">打印预览 ({{ canvasWidth }}×{{ canvasHeight }}px)</view>
+      <view class="canvas-wrapper"
+        :style="{ width: canvasDisplayW + 'px', height: canvasDisplayH + 'px', overflow: 'hidden' }">
         <canvas canvas-id="printCanvas"
-          :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }"
+          :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px',
+                    transform: 'scale(' + canvasScale + ')', transformOrigin: 'top left' }"
           class="print-canvas" />
       </view>
       <view class="btn-row">
@@ -162,7 +164,7 @@ export default {
       printerInfo: {},
 
       labelTypeIndex: 0,
-      density: 10,
+      density: 3,
       densityMin: 1,
       densityMax: 15,
       quantity: 1,
@@ -171,9 +173,9 @@ export default {
       paperH: "30",
       printerDpi: 300,
       canvasW: "472",
-      canvasH: "352",
+      canvasH: "360",
       canvasWidth: 472,
-      canvasHeight: 352,
+      canvasHeight: 360,
 
       currentPattern: "lines",
       printing: false,
@@ -184,12 +186,31 @@ export default {
       logScrollTop: 0,
 
       labelTypeNames: LABEL_TYPES.map((t) => t.name),
+      screenWidth: 320,
     };
   },
 
+  computed: {
+    canvasScale() {
+      const maxW = this.screenWidth - 40; // card padding
+      if (this.canvasWidth <= maxW) return 1;
+      return Math.round((maxW / this.canvasWidth) * 1000) / 1000;
+    },
+    canvasDisplayW() {
+      return Math.round(this.canvasWidth * this.canvasScale);
+    },
+    canvasDisplayH() {
+      return Math.round(this.canvasHeight * this.canvasScale);
+    },
+  },
+
   onReady() {
+    try {
+      const sysInfo = uni.getSystemInfoSync();
+      this.screenWidth = sysInfo.windowWidth || 360;
+    } catch (e) { this.screenWidth = 360; }
     this.drawTestPattern("lines");
-    this.log("页面就绪，等待操作");
+    this.log("页面就绪，屏幕宽度: " + this.screenWidth + "px");
   },
 
   onUnload() {
