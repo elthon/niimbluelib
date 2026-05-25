@@ -363,12 +363,30 @@ export default {
       this.$nextTick(() => this.drawTestPattern(this.currentPattern));
     },
 
+    /** Re-draw current pattern with draw(true, callback) + delay to guarantee pixels are flushed */
+    redrawForPrint() {
+      return new Promise((resolve) => {
+        const ctx = uni.createCanvasContext("printCanvas", this);
+        const w = this.canvasWidth;
+        const h = this.canvasHeight;
+        this._drawPatternToCtx(ctx, w, h, this.currentPattern);
+        ctx.draw(true, () => {
+          // Extra delay to let the pixel buffer fully sync on Android
+          setTimeout(resolve, 150);
+        });
+      });
+    },
+
     drawTestPattern(pattern) {
       this.currentPattern = pattern;
       const ctx = uni.createCanvasContext("printCanvas", this);
       const w = this.canvasWidth;
       const h = this.canvasHeight;
+      this._drawPatternToCtx(ctx, w, h, pattern);
+      ctx.draw();
+    },
 
+    _drawPatternToCtx(ctx, w, h, pattern) {
       ctx.setFillStyle("#ffffff");
       ctx.fillRect(0, 0, w, h);
       ctx.setStrokeStyle("#000000");
@@ -398,8 +416,6 @@ export default {
       } else if (pattern === "fill") {
         ctx.fillRect(0, 0, w, h);
       }
-
-      ctx.draw();
     },
 
     async onPrint() {
@@ -418,6 +434,9 @@ export default {
         " (" + Math.round(dataBytes / 1024) + "KB, MTU=" + (this.client.mtu || "?") + ")");
 
       try {
+        // Re-draw canvas with callback to ensure pixel buffer is ready
+        await this.redrawForPrint();
+
         const encoded = await encodeUniCanvas(
           "printCanvas", w, h, this.printDirection, this
         );
