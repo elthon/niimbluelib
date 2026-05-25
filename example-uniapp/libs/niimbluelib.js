@@ -493,7 +493,7 @@ var Mutex = class {
   }
 };
 
-// example-uniapp/libs/_capacitor-shim.js
+// build-shims/capacitor-core.js
 var Capacitor = { getPlatform() {
   return "web";
 } };
@@ -3556,7 +3556,7 @@ var NiimbotBluetoothClient = class extends NiimbotAbstractClient {
   }
 };
 
-// example-uniapp/libs/_capacitor-ble-shim.js
+// build-shims/capacitor-ble.js
 var BleClient = {};
 
 // src/client/capacitor_ble_impl.ts
@@ -3850,7 +3850,7 @@ var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
         if (!settled) {
           settled = true;
           uni.stopBluetoothDevicesDiscovery();
-          uni.offBluetoothDeviceFound();
+          typeof uni.offBluetoothDeviceFound === "function" && uni.offBluetoothDeviceFound();
           reject(new Error("Bluetooth scan timeout"));
         }
       }, timeoutMs);
@@ -3865,7 +3865,7 @@ var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
               settled = true;
               clearTimeout(timer);
               uni.stopBluetoothDevicesDiscovery();
-              uni.offBluetoothDeviceFound();
+              typeof uni.offBluetoothDeviceFound === "function" && uni.offBluetoothDeviceFound();
               resolve({ deviceId: device.deviceId, name });
             }
             return;
@@ -3880,7 +3880,7 @@ var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
           if (!settled) {
             settled = true;
             clearTimeout(timer);
-            uni.offBluetoothDeviceFound();
+            typeof uni.offBluetoothDeviceFound === "function" && uni.offBluetoothDeviceFound();
             reject(new Error(`startBluetoothDevicesDiscovery failed: ${err.errMsg}`));
           }
         }
@@ -3918,8 +3918,8 @@ var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
     throw new Error("No suitable BLE characteristic found");
   }
   onBleDisconnect() {
-    uni.offBLEConnectionStateChange(this.onConnectionStateChange);
-    uni.offBLECharacteristicValueChange(this.onCharacteristicValueChange);
+    typeof uni.offBLEConnectionStateChange === "function" && uni.offBLEConnectionStateChange(this.onConnectionStateChange);
+    typeof uni.offBLECharacteristicValueChange === "function" && uni.offBLECharacteristicValueChange(this.onCharacteristicValueChange);
     this.deviceId = void 0;
     this.serviceId = void 0;
     this.characteristicId = void 0;
@@ -3944,8 +3944,8 @@ var NiimbotUniAppBleClient = class extends NiimbotAbstractClient {
       } catch {
       }
     }
-    uni.offBLEConnectionStateChange(this.onConnectionStateChange);
-    uni.offBLECharacteristicValueChange(this.onCharacteristicValueChange);
+    typeof uni.offBLEConnectionStateChange === "function" && uni.offBLEConnectionStateChange(this.onConnectionStateChange);
+    typeof uni.offBLECharacteristicValueChange === "function" && uni.offBLECharacteristicValueChange(this.onCharacteristicValueChange);
     this.deviceId = void 0;
     this.serviceId = void 0;
     this.characteristicId = void 0;

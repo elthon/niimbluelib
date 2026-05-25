@@ -143,7 +143,7 @@ export class NiimbotUniAppBleClient extends NiimbotAbstractClient {
         if (!settled) {
           settled = true;
           uni.stopBluetoothDevicesDiscovery();
-          uni.offBluetoothDeviceFound();
+          typeof uni.offBluetoothDeviceFound === "function" && uni.offBluetoothDeviceFound();
           reject(new Error("Bluetooth scan timeout"));
         }
       }, timeoutMs);
@@ -161,7 +161,7 @@ export class NiimbotUniAppBleClient extends NiimbotAbstractClient {
               settled = true;
               clearTimeout(timer);
               uni.stopBluetoothDevicesDiscovery();
-              uni.offBluetoothDeviceFound();
+              typeof uni.offBluetoothDeviceFound === "function" && uni.offBluetoothDeviceFound();
               resolve({ deviceId: device.deviceId, name });
             }
             return;
@@ -176,7 +176,7 @@ export class NiimbotUniAppBleClient extends NiimbotAbstractClient {
           if (!settled) {
             settled = true;
             clearTimeout(timer);
-            uni.offBluetoothDeviceFound();
+            typeof uni.offBluetoothDeviceFound === "function" && uni.offBluetoothDeviceFound();
             reject(new Error(`startBluetoothDevicesDiscovery failed: ${err.errMsg}`));
           }
         },
@@ -224,8 +224,8 @@ export class NiimbotUniAppBleClient extends NiimbotAbstractClient {
   }
 
   private onBleDisconnect() {
-    uni.offBLEConnectionStateChange(this.onConnectionStateChange);
-    uni.offBLECharacteristicValueChange(this.onCharacteristicValueChange);
+    typeof uni.offBLEConnectionStateChange === "function" && uni.offBLEConnectionStateChange(this.onConnectionStateChange);
+    typeof uni.offBLECharacteristicValueChange === "function" && uni.offBLECharacteristicValueChange(this.onCharacteristicValueChange);
     this.deviceId = undefined;
     this.serviceId = undefined;
     this.characteristicId = undefined;
@@ -253,8 +253,8 @@ export class NiimbotUniAppBleClient extends NiimbotAbstractClient {
         // ignore
       }
     }
-    uni.offBLEConnectionStateChange(this.onConnectionStateChange);
-    uni.offBLECharacteristicValueChange(this.onCharacteristicValueChange);
+    typeof uni.offBLEConnectionStateChange === "function" && uni.offBLEConnectionStateChange(this.onConnectionStateChange);
+    typeof uni.offBLECharacteristicValueChange === "function" && uni.offBLECharacteristicValueChange(this.onCharacteristicValueChange);
     this.deviceId = undefined;
     this.serviceId = undefined;
     this.characteristicId = undefined;
