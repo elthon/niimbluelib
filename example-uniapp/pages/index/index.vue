@@ -101,6 +101,7 @@
         <button class="btn btn-small" :class="currentPattern==='lines'?'btn-active':''" @click="drawTestPattern('lines')">线条</button>
         <button class="btn btn-small" :class="currentPattern==='grid'?'btn-active':''" @click="drawTestPattern('grid')">网格</button>
         <button class="btn btn-small" :class="currentPattern==='text'?'btn-active':''" @click="drawTestPattern('text')">文字</button>
+        <button class="btn btn-small" :class="currentPattern==='batchLabel'?'btn-active':''" @click="drawTestPattern('batchLabel')">批次码</button>
         <button class="btn btn-small" :class="currentPattern==='fill'?'btn-active':''" @click="drawTestPattern('fill')">全黑</button>
       </view>
     </view>
@@ -169,16 +170,16 @@ export default {
       densityMax: 15,
       quantity: 1,
       printDirection: "top",
-      paperW: "40",
-      paperH: "30",
+      paperW: "80",
+      paperH: "60",
       printerDpi: 300,
-      canvasW: "240",
-      canvasH: "184",
-      canvasWidth: 240,
-      canvasHeight: 184,
+      canvasW: "848",
+      canvasH: "712",
+      canvasWidth: 848,
+      canvasHeight: 712,
       previewImagePath: "",
 
-      currentPattern: "lines",
+      currentPattern: "batchLabel",
       printing: false,
       printProgress: 0,
       printStatus: "",
@@ -224,7 +225,7 @@ export default {
       const sysInfo = uni.getSystemInfoSync();
       this.screenWidth = sysInfo.windowWidth || 360;
     } catch (e) { this.screenWidth = 360; }
-    this.drawTestPattern("lines");
+    this.drawTestPattern(this.currentPattern);
     this.log("页面就绪，屏幕宽度: " + this.screenWidth + "px");
   },
 
@@ -431,6 +432,123 @@ export default {
       }, this);
     },
 
+    drawBoldText(ctx, text, x, y, size, align = "left") {
+      ctx.setFontSize(size);
+      ctx.setTextAlign(align);
+      ctx.setFillStyle("#000000");
+      ctx.fillText(text, x, y);
+      ctx.fillText(text, x + 1, y);
+    },
+
+    drawNormalText(ctx, text, x, y, size, align = "left") {
+      ctx.setFontSize(size);
+      ctx.setTextAlign(align);
+      ctx.setFillStyle("#000000");
+      ctx.fillText(text, x, y);
+    },
+
+    drawField(ctx, label, value, labelX, valueX, y, valueSize = 31) {
+      this.drawBoldText(ctx, label, labelX, y, 34);
+      this.drawNormalText(ctx, value, valueX, y, valueSize);
+    },
+
+    drawWrappedText(ctx, lines, x, y, size, lineHeight) {
+      for (let i = 0; i < lines.length; i++) {
+        this.drawNormalText(ctx, lines[i], x, y + i * lineHeight, size);
+      }
+    },
+
+    drawFinder(ctx, x, y, unit) {
+      const s = unit * 7;
+      ctx.setFillStyle("#000000");
+      ctx.fillRect(x, y, s, s);
+      ctx.setFillStyle("#ffffff");
+      ctx.fillRect(x + unit, y + unit, unit * 5, unit * 5);
+      ctx.setFillStyle("#000000");
+      ctx.fillRect(x + unit * 2, y + unit * 2, unit * 3, unit * 3);
+    },
+
+    drawQrLike(ctx, x, y, size) {
+      const cells = 29;
+      const unit = Math.floor(size / cells);
+      const realSize = unit * cells;
+
+      ctx.setFillStyle("#ffffff");
+      ctx.fillRect(x, y, realSize, realSize);
+      this.drawFinder(ctx, x, y, unit);
+      this.drawFinder(ctx, x + realSize - unit * 7, y, unit);
+      this.drawFinder(ctx, x, y + realSize - unit * 7, unit);
+
+      ctx.setFillStyle("#000000");
+      for (let row = 0; row < cells; row++) {
+        for (let col = 0; col < cells; col++) {
+          const inTopLeft = row < 8 && col < 8;
+          const inTopRight = row < 8 && col >= cells - 8;
+          const inBottomLeft = row >= cells - 8 && col < 8;
+          if (inTopLeft || inTopRight || inBottomLeft) continue;
+
+          const v = (row * 17 + col * 31 + row * col) % 11;
+          if (v === 0 || v === 3 || v === 7 || (row % 5 === 0 && col % 3 === 0)) {
+            ctx.fillRect(x + col * unit, y + row * unit, unit, unit);
+          }
+        }
+      }
+    },
+
+    drawBatchLabel(ctx, w, h) {
+      const sx = w / 848;
+      const sy = h / 712;
+      const s = Math.min(sx, sy);
+      const x = (v) => Math.round(v * sx);
+      const y = (v) => Math.round(v * sy);
+      const fs = (v) => Math.max(12, Math.round(v * s));
+
+      ctx.setFillStyle("#ffffff");
+      ctx.fillRect(0, 0, w, h);
+      ctx.setFillStyle("#000000");
+      ctx.setStrokeStyle("#000000");
+      ctx.setTextBaseline("top");
+
+      const l1 = x(54);
+      const v1 = x(220);
+      const l2 = x(458);
+      const v2 = x(624);
+      const rows = [24, 80, 136, 192, 248, 304].map(y);
+
+      this.drawField(ctx, "产品属性:", "中药材", l1, v1, rows[0], fs(30));
+      this.drawField(ctx, "品    名:", "白莲子", l1, v1, rows[1], fs(30));
+      this.drawField(ctx, "产    地:", "湖南省湘潭市", l1, v1, rows[2], fs(30));
+      this.drawField(ctx, "采收日期:", "2024-08", l1, v1, rows[3], fs(30));
+      this.drawField(ctx, "数    量:", "50kg", l1, v1, rows[4], fs(30));
+      this.drawField(ctx, "贮    藏:", "置干燥处，防蛀", l1, v1, rows[5], fs(29));
+
+      this.drawField(ctx, "产品批号:", "B202408001", l2, v2, rows[0], fs(30));
+      this.drawField(ctx, "规    格:", "统货", l2, v2, rows[1], fs(30));
+      this.drawField(ctx, "包装日期:", "2024-08", l2, v2, rows[2], fs(30));
+      this.drawField(ctx, "加工日期:", "2024-08", l2, v2, rows[3], fs(30));
+      this.drawField(ctx, "保 质 期:", "36个月", l2, v2, rows[4], fs(30));
+      this.drawField(ctx, "质检标识:", "质检合格", l2, v2, rows[5], fs(29));
+
+      this.drawBoldText(ctx, "执行标准:", l1, y(360), fs(33));
+      this.drawNormalText(ctx, "《湖南省中药饮片炮制规范》2021年版", v1, y(363), fs(27));
+
+      this.drawBoldText(ctx, "基    源:", l1, y(415), fs(33));
+      this.drawWrappedText(ctx, [
+        "本品为睡莲科植物",
+        "莲Nelumbo",
+        "nucifera Gaertn.的",
+        "干燥成熟种子。",
+      ], v1, y(417), fs(29), y(42));
+
+      this.drawBoldText(ctx, "湖", x(555), y(455), fs(31), "center");
+      this.drawBoldText(ctx, "源", x(555), y(493), fs(31), "center");
+      this.drawBoldText(ctx, "码", x(555), y(531), fs(31), "center");
+      this.drawQrLike(ctx, x(610), y(385), Math.min(x(205), y(205)));
+
+      this.drawField(ctx, "经 纬 度:", "E112°50′17″-112°51′26″； N27°22′44″-27°23′42″", l1, x(210), y(628), fs(26));
+      this.drawField(ctx, "生产企业:", "湘潭县谭智奇中药材种植专业合作社", l1, x(205), y(678), fs(28));
+    },
+
     _drawPatternToCtx(ctx, w, h, pattern) {
       ctx.setFillStyle("#ffffff");
       ctx.fillRect(0, 0, w, h);
@@ -458,6 +576,8 @@ export default {
         ctx.setFontSize(Math.round(fontSize * 0.5));
         ctx.fillText(w + " x " + h + "px", w / 2, h / 3 + fontSize * 2.4);
         ctx.strokeRect(1, 1, w - 2, h - 2);
+      } else if (pattern === "batchLabel") {
+        this.drawBatchLabel(ctx, w, h);
       } else if (pattern === "fill") {
         ctx.fillRect(0, 0, w, h);
       }
