@@ -126,8 +126,8 @@
 </template>
 
 <script>
-// 使用相对路径引用父目录编译产物，避免 HBuilderX 包名解析问题
-var niimbluelib = require("../../dist/cjs/index.js");
+// 引用项目内的库编译产物
+var niimbluelib = require("../../libs/niimbluelib/index.js");
 var NiimbotUniAppBleClient = niimbluelib.NiimbotUniAppBleClient;
 var RequestCommandId = niimbluelib.RequestCommandId;
 var ResponseCommandId = niimbluelib.ResponseCommandId;
